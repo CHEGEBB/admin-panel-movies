@@ -1,4 +1,3 @@
-// app/dashboard/movies/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,15 +15,22 @@ import {
 
 // Define the Movie type based on Appwrite document structure
 interface Movie extends Models.Document {
-  title: string;
-  description: string;
-  genre: string[];
-  release_year: number;
-  duration: number;
-  poster_url?: string;
-  is_featured?: boolean;
-  is_trending?: boolean;
-  premium_only?: boolean;
+    title: string;
+    description?: string;
+    ai_summary?: string;
+    genre?: string[];
+    poster_url?: string;
+    video_url?: string; // Single video URL field
+    premium_only?: boolean;
+    download_enabled?: boolean;
+    view_count?: number;
+    rating?: number;
+    download_count?: number;
+    is_featured?: boolean;
+    is_trending?: boolean;
+    tags?: string[];
+    release_year?: number;
+    duration?: number;
 }
 
 export default function Movies() {
@@ -86,6 +92,9 @@ export default function Movies() {
   const handleDeleteClick = (movie: Movie) => {
     setMovieToDelete(movie);
     setShowDeleteModal(true);
+    // Close other modals if open
+    setShowViewModal(false);
+    setEditMode(false);
   };
   
   const confirmDelete = async () => {
@@ -116,6 +125,9 @@ export default function Movies() {
   const handleViewClick = (movie: Movie) => {
     setSelectedMovie(movie);
     setShowViewModal(true);
+    // Close other modals if open
+    setShowDeleteModal(false);
+    setEditMode(false);
   };
   
   // EDIT FUNCTIONALITY
@@ -124,6 +136,9 @@ export default function Movies() {
     setUpdatedMovie({ ...movie }); // Copy all movie fields to the edit form
     setEditMode(true);
     setPosterPreview(movie.poster_url || null);
+    // Close other modals if open
+    setShowViewModal(false);
+    setShowDeleteModal(false);
   };
   
   const handleUpdateMovie = async (e: React.FormEvent) => {
@@ -145,8 +160,15 @@ export default function Movies() {
         updates.poster_url = fileUrl;
       }
       
+      // Remove Appwrite document metadata properties before updating
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([key]) => 
+          !key.startsWith('$') && key !== '$id' && key !== '$createdAt' && key !== '$updatedAt'
+        )
+      );
+      
       // Update the movie in Appwrite
-      const updated = await updateMovie(movieToEdit.$id, updates as Models.DataWithoutDocumentKeys);
+      const updated = await updateMovie(movieToEdit.$id, cleanUpdates);
       
       // Update the local state
       setMovies(prevMovies => 
@@ -185,11 +207,11 @@ export default function Movies() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     
-    if (name === 'genre') {
-      // Handle multi-select for genres
+    if (name === 'genre' || name === 'tags') {
+      // Handle multi-select for arrays
       const selectedOptions = Array.from((e.target as HTMLSelectElement).selectedOptions);
-      const genres = selectedOptions.map(option => option.value);
-      setUpdatedMovie(prev => ({ ...prev, [name]: genres }));
+      const values = selectedOptions.map(option => option.value);
+      setUpdatedMovie(prev => ({ ...prev, [name]: values }));
       return;
     }
     
@@ -206,7 +228,7 @@ export default function Movies() {
       return;
     }
     
-    // Handle regular text inputs
+    // Handle regular text inputs (including video_url)
     setUpdatedMovie(prev => ({ ...prev, [name]: value }));
   };
   
@@ -243,9 +265,9 @@ export default function Movies() {
       case 'title-desc':
         return b.title.localeCompare(a.title);
       case 'year-new':
-        return b.release_year - a.release_year;
+        return (b.release_year || 0) - (a.release_year || 0);
       case 'year-old':
-        return a.release_year - b.release_year;
+        return (a.release_year || 0) - (b.release_year || 0);
       default:
         return 0;
     }
@@ -263,18 +285,28 @@ export default function Movies() {
           onClick={() => {
             setMovieToEdit(null);
             setUpdatedMovie({
-              title: '',
-              description: '',
-              genre: [],
-              release_year: new Date().getFullYear(),
-              duration: 0,
-              is_featured: false,
-              is_trending: false,
-              premium_only: false
-            });
+                title: '',
+                description: '',
+                ai_summary: '',
+                genre: [],
+                video_url: '', // Single video URL
+                premium_only: false,
+                download_enabled: false,
+                view_count: 0,
+                rating: 0,
+                download_count: 0,
+                is_featured: false,
+                is_trending: false,
+                tags: [],
+                release_year: new Date().getFullYear(),
+                duration: 0
+              });
             setEditMode(true);
             setPosterFile(null);
             setPosterPreview(null);
+            // Close other modals if open
+            setShowViewModal(false);
+            setShowDeleteModal(false);
           }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors flex items-center gap-2 self-start md:self-auto mt-4 md:mt-0"
         >
@@ -302,19 +334,19 @@ export default function Movies() {
       
       {/* Edit form modal */}
       {editMode && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 z-[1000] overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-          <div 
-  className="fixed inset-0 transition-opacity" 
-  aria-hidden="true"
-  onClick={cancelEdit} // Add click handler to close on backdrop click
->
-  <div className="absolute inset-0 bg-black opacity-75"></div>
-</div>
+            <div 
+              className="fixed inset-0 transition-opacity" 
+              aria-hidden="true"
+              onClick={cancelEdit}
+            >
+              <div className="absolute inset-0 bg-black opacity-75"></div>
+            </div>
             
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full relative z-[1001]">
               <form onSubmit={handleUpdateMovie}>
                 <div className="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
                   <div className="flex justify-between items-center mb-4">
@@ -384,6 +416,23 @@ export default function Movies() {
                           Hold Ctrl (or Cmd) to select multiple genres
                         </p>
                       </div>
+                      <div>
+  <label htmlFor="video_url" className="block text-sm font-medium text-gray-300">
+    Video URL
+  </label>
+  <input
+    type="url"
+    id="video_url"
+    name="video_url"
+    value={updatedMovie.video_url || ''}
+    onChange={handleInputChange}
+    placeholder="https://drive.google.com/file/d/..."
+    className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
+  />
+  <p className="text-xs text-gray-400 mt-1">
+    Google Drive share link for the movie file
+  </p>
+</div>
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -560,15 +609,22 @@ export default function Movies() {
       
       {/* View movie details modal */}
       {showViewModal && selectedMovie && (
-        <div className="fixed inset-0 z-[10000] overflow-y-auto">
+        <div className="fixed inset-0 z-[1000] overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div 
+              className="fixed inset-0 transition-opacity" 
+              aria-hidden="true"
+              onClick={() => {
+                setShowViewModal(false);
+                setSelectedMovie(null);
+              }}
+            >
               <div className="absolute inset-0 bg-black opacity-75"></div>
             </div>
             
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full relative z-[1001]">
               <div className="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-bold text-white">
@@ -922,18 +978,28 @@ export default function Movies() {
               onClick={() => {
                 setMovieToEdit(null);
                 setUpdatedMovie({
-                  title: '',
-                  description: '',
-                  genre: [],
-                  release_year: new Date().getFullYear(),
-                  duration: 0,
-                  is_featured: false,
-                  is_trending: false,
-                  premium_only: false
-                });
+                    title: '',
+                    description: '',
+                    ai_summary: '',
+                    genre: [],
+                    video_url: '', // Single video URL
+                    premium_only: false,
+                    download_enabled: false,
+                    view_count: 0,
+                    rating: 0,
+                    download_count: 0,
+                    is_featured: false,
+                    is_trending: false,
+                    tags: [],
+                    release_year: new Date().getFullYear(),
+                    duration: 0
+                  });
                 setEditMode(true);
                 setPosterFile(null);
                 setPosterPreview(null);
+                // Close other modals if open
+                setShowViewModal(false);
+                setShowDeleteModal(false);
               }}
               className="inline-flex items-center text-red-500 hover:text-red-400 transition-colors"
             >
@@ -970,15 +1036,19 @@ export default function Movies() {
       
       {/* Delete Confirmation Modal */}
       {showDeleteModal && movieToDelete && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 z-[1000] overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div 
+              className="fixed inset-0 transition-opacity" 
+              aria-hidden="true"
+              onClick={cancelDelete}
+            >
               <div className="absolute inset-0 bg-black opacity-75"></div>
             </div>
             
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-[1001]">
               <div className="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">

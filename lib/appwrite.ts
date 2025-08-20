@@ -139,4 +139,4 @@ export async function logout() {
     }
 }
 
-export { Models };
+export type { Models };
