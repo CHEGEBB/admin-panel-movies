@@ -1,5 +1,5 @@
 // lib/appwrite.ts
-import { Client, Account, Databases, Storage, Models } from 'appwrite';
+import { Client, Account, Databases, Storage, Models, ID } from 'appwrite';
 
 // Initialize the Appwrite client
 const client = new Client()
@@ -98,6 +98,23 @@ export async function login(email: string, password: string) {
         return session;
     } catch (error) {
         console.error('Login error:', error);
+        throw error;
+    }
+}
+
+// ADD THIS REGISTRATION FUNCTION
+export async function registerAdmin(email: string, password: string, name: string = 'Admin User') {
+    try {
+        const user = await account.create(
+            ID.unique(),
+            email,
+            password,
+            name
+        );
+        console.log('Admin user created successfully:', user);
+        return user;
+    } catch (error) {
+        console.error('Registration error:', error);
         throw error;
     }
 }
