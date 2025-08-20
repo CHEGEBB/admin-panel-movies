@@ -6,11 +6,6 @@ import { ChangeEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { addMovie, uploadPoster } from '@/lib/appwrite';
 
-interface FileReference {
-  primary_drive: string;
-  file_size: number;
-}
-
 interface MovieData {
   title: string;
   description: string;
@@ -19,8 +14,7 @@ interface MovieData {
   release_year: string;
   duration: string;
   poster_url: string;
-  quality_options: string[];
-  file_references: Record<string, FileReference>;
+  video_url: string; // Single video URL instead of file_references
   premium_only: boolean;
   download_enabled: boolean;
   rating: number;
@@ -41,13 +35,7 @@ export default function AddMovie() {
     release_year: '',
     duration: '',
     poster_url: '',
-    quality_options: ['720p'],
-    file_references: {
-      '720p': {
-        primary_drive: '',
-        file_size: 0
-      }
-    },
+    video_url: '', // Single video URL
     premium_only: false,
     download_enabled: true,
     rating: 0,
@@ -72,9 +60,6 @@ export default function AddMovie() {
     'Nollywood', 'Bollywood', 'Asian'
   ];
   
-  // Available quality options
-  const availableQualities: string[] = ['720p', '1080p', '4K'];
-  
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = 'checked' in e.target ? e.target.checked : false;
@@ -84,7 +69,7 @@ export default function AddMovie() {
         ...formData,
         [name]: checked
       });
-    } else if (name === 'genre' || name === 'tags' || name === 'quality_options') {
+    } else if (name === 'genre' || name === 'tags') {
       // Handle multiple select
       if ('selectedOptions' in e.target && e.target.selectedOptions) {
         const options = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
@@ -107,54 +92,6 @@ export default function AddMovie() {
     setPosterPreview(previewUrl);
   };
   
-  const handleDriveFileChange = (e: ChangeEvent<HTMLInputElement>, quality: string) => {
-    const { name, value } = e.target;
-    const numericValue = name === 'file_size' ? Number(value) : value;
-    
-    setFormData({
-      ...formData,
-      file_references: {
-        ...formData.file_references,
-        [quality]: {
-          ...formData.file_references[quality],
-          [name]: numericValue
-        }
-      }
-    });
-  };
-  
-  const handleAddQuality = (quality: string) => {
-    if (!formData.quality_options.includes(quality)) {
-      const updatedQualities = [...formData.quality_options, quality];
-      
-      setFormData({
-        ...formData,
-        quality_options: updatedQualities,
-        file_references: {
-          ...formData.file_references,
-          [quality]: {
-            primary_drive: '',
-            file_size: 0
-          }
-        }
-      });
-    }
-  };
-  
-  const handleRemoveQuality = (quality: string) => {
-    if (formData.quality_options.length > 1) {
-      const updatedQualities = formData.quality_options.filter(q => q !== quality);
-      const updatedFileReferences = { ...formData.file_references };
-      delete updatedFileReferences[quality];
-      
-      setFormData({
-        ...formData,
-        quality_options: updatedQualities,
-        file_references: updatedFileReferences
-      });
-    }
-  };
-  
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -168,25 +105,10 @@ export default function AddMovie() {
       if (formData.genre.length === 0) throw new Error('At least one genre is required');
       if (!formData.release_year) throw new Error('Release year is required');
       if (!formData.duration) throw new Error('Duration is required');
-      
-      // Check if at least one quality has a file reference
-      let hasValidFileReference = false;
-      for (const quality of formData.quality_options) {
-        if (formData.file_references[quality]?.primary_drive) {
-          hasValidFileReference = true;
-          break;
-        }
-      }
-      
-      if (!hasValidFileReference) {
-        throw new Error('At least one quality must have a Google Drive file ID');
-      }
+      if (!formData.video_url) throw new Error('Video URL is required');
       
       // Prepare movie data
       const movieData = { ...formData };
-      
-      // Convert to string for Appwrite storage
-      movieData.file_references = { ...formData.file_references };
       
       // Upload poster if provided
       if (posterFile) {
@@ -211,13 +133,7 @@ export default function AddMovie() {
         release_year: '',
         duration: '',
         poster_url: '',
-        quality_options: ['720p'],
-        file_references: {
-          '720p': {
-            primary_drive: '',
-            file_size: 0
-          }
-        },
+        video_url: '',
         premium_only: false,
         download_enabled: true,
         rating: 0,
@@ -370,6 +286,25 @@ export default function AddMovie() {
                 ))}
               </select>
               <p className="text-gray-400 text-sm mt-1">Hold Ctrl/Cmd to select multiple genres</p>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-300 mb-2" htmlFor="video_url">
+                Video URL *
+              </label>
+              <input
+                id="video_url"
+                name="video_url"
+                type="url"
+                value={formData.video_url}
+                onChange={handleChange}
+                className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="https://drive.google.com/file/d/..."
+                required
+              />
+              <p className="text-gray-400 text-sm mt-1">
+                Google Drive share link for the movie file
+              </p>
             </div>
             
             <div className="mb-4">
@@ -529,90 +464,6 @@ export default function AddMovie() {
             </div>
           </div>
         </div>
-        
-        {/* Movie Files Section */}
-        <h2 className="text-xl font-bold mb-4 border-b border-gray-700 pb-2 mt-8">Movie Files</h2>
-        
-        <div className="mb-4">
-          <label className="block text-gray-300 mb-2">Available Qualities</label>
-          <div className="flex flex-wrap gap-2">
-            {availableQualities.map(quality => (
-              <button
-                key={quality}
-                type="button"
-                onClick={() => formData.quality_options.includes(quality) 
-                  ? handleRemoveQuality(quality) 
-                  : handleAddQuality(quality)
-                }
-                className={`px-4 py-2 rounded-full ${
-                  formData.quality_options.includes(quality)
-                    ? 'bg-red-600 text-white'
-                    : 'bg-gray-700 text-gray-300'
-                }`}
-              >
-                {quality}
-                {formData.quality_options.includes(quality) && (
-                  <span className="ml-2">✓</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        {formData.quality_options.map(quality => (
-          <div key={quality} className="mb-6 bg-gray-700/30 p-4 rounded-lg">
-            <h3 className="text-lg font-bold mb-3">{quality} Quality</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-gray-300 mb-2" htmlFor={`${quality}-primary_drive`}>
-                  Google Drive File ID *
-                </label>
-                <input
-                  id={`${quality}-primary_drive`}
-                  name="primary_drive"
-                  type="text"
-                  value={formData.file_references[quality]?.primary_drive || ''}
-                  onChange={(e) => handleDriveFileChange(e, quality)}
-                  className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="Google Drive file ID (from share link)"
-                />
-                <p className="text-gray-400 text-sm mt-1">
-                  Example: For https://drive.google.com/file/d/1ABC123XYZ/view, enter &quot;1ABC123XYZ&quot;
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-gray-300 mb-2" htmlFor={`${quality}-file_size`}>
-                  File Size (MB)
-                </label>
-                <input
-                  id={`${quality}-file_size`}
-                  name="file_size"
-                  type="number"
-                  min="0"
-                  value={formData.file_references[quality]?.file_size || 0}
-                  onChange={(e) => handleDriveFileChange(e, quality)}
-                  className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="File size in MB"
-                />
-              </div>
-            </div>
-            
-            {formData.quality_options.length > 1 && (
-              <button
-                type="button"
-                onClick={() => handleRemoveQuality(quality)}
-                className="mt-3 text-red-400 hover:text-red-300 text-sm flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="mr-1" viewBox="0 0 16 16">
-                  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                </svg>
-                Remove {quality} quality
-              </button>
-            )}
-          </div>
-        ))}
         
         {/* Submit Button */}
         <div className="flex justify-end mt-8">
