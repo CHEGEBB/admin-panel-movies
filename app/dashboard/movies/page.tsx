@@ -1,19 +1,33 @@
 // app/dashboard/movies/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, SetStateAction } from 'react';
 import Link from 'next/link';
 import { getMovies, deleteMovie } from '@/lib/appwrite';
 
 export default function Movies() {
-  const [movies, setMovies] = useState([]);
+  type DefaultDocument = {
+    $id: string;
+    title: string;
+    description: string;
+    genre: string[];
+    release_year: number;
+    duration: number;
+    poster_url?: string;
+    is_featured?: boolean;
+    is_trending?: boolean;
+    premium_only?: boolean;
+    $createdAt: string;
+  };
+
+  const [movies, setMovies] = useState<DefaultDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('All');
   const [sortBy, setSortBy] = useState('newest');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [movieToDelete, setMovieToDelete] = useState(null);
+  const [movieToDelete, setMovieToDelete] = useState<DefaultDocument | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Available genres for filter dropdown
@@ -33,7 +47,7 @@ export default function Movies() {
     try {
       setLoading(true);
       const fetchedMovies = await getMovies(100); // Get up to 100 movies
-      setMovies(fetchedMovies);
+      setMovies(fetchedMovies as unknown as DefaultDocument[]);
     } catch (err) {
       setError('Failed to fetch movies');
       console.error(err);
@@ -42,7 +56,7 @@ export default function Movies() {
     }
   };
   
-  const handleDeleteClick = (movie) => {
+  const handleDeleteClick = (movie: DefaultDocument) => {
     setMovieToDelete(movie);
     setShowDeleteModal(true);
   };
@@ -80,9 +94,9 @@ export default function Movies() {
   const sortedMovies = [...filteredMovies].sort((a, b) => {
     switch (sortBy) {
       case 'newest':
-        return new Date(b.$createdAt) - new Date(a.$createdAt);
+        return new Date(b.$createdAt).getTime() - new Date(a.$createdAt).getTime();
       case 'oldest':
-        return new Date(a.$createdAt) - new Date(b.$createdAt);
+        return new Date(b.$createdAt).getTime() - new Date(a.$createdAt).getTime();
       case 'title-asc':
         return a.title.localeCompare(b.title);
       case 'title-desc':
@@ -340,7 +354,7 @@ export default function Movies() {
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-300">
-                        Are you sure you want to delete "{movieToDelete?.title}"? This action cannot be undone.
+                        Are you sure you want to delete &quot;{movieToDelete?.title}&quot;? This action cannot be undone.
                       </p>
                     </div>
                   </div>
