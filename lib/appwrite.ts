@@ -138,3 +138,5 @@ export async function logout() {
         throw error;
     }
 }
+
+export { Models };

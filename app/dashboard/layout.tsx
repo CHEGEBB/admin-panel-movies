@@ -61,7 +61,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-gray-900 text-white flex">
       {/* Sidebar for larger screens */}
-      <aside className="hidden md:flex flex-col w-64 bg-black border-r border-gray-800">
+      <aside className="hidden md:flex flex-col w-64 bg-gray-900 border-r border-gray-800">
         <div className="p-5 border-b border-gray-800">
           <Link href="/dashboard" className="flex items-center gap-3">
             <Image src="/images/logo.png" alt="DJ Afro Logo" width={40} height={40} />
