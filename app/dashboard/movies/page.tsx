@@ -20,7 +20,8 @@ interface Movie extends Models.Document {
     ai_summary?: string;
     genre?: string[];
     poster_url?: string;
-    video_url?: string; // Single video URL field
+    quality_options?: string[];
+    video_url?: string;
     premium_only?: boolean;
     download_enabled?: boolean;
     view_count?: number;
@@ -29,8 +30,8 @@ interface Movie extends Models.Document {
     is_featured?: boolean;
     is_trending?: boolean;
     tags?: string[];
-    release_year?: number;
-    duration?: number;
+    release_year?: string;
+    duration?: string;
 }
 
 export default function Movies() {
@@ -66,6 +67,11 @@ export default function Movies() {
     'Sci-Fi', 'Thriller', 'Adventure', 'Fantasy', 'Animation',
     'Documentary', 'Crime', 'Mystery', 'War', 'Western',
     'Nollywood', 'Bollywood', 'Asian'
+  ];
+
+  // Available quality options
+  const availableQualityOptions = [
+    '480p', '720p', '1080p', '1440p', '4K'
   ];
 
   // Fetch movies on component mount
@@ -207,7 +213,7 @@ export default function Movies() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     
-    if (name === 'genre' || name === 'tags') {
+    if (name === 'genre' || name === 'tags' || name === 'quality_options') {
       // Handle multi-select for arrays
       const selectedOptions = Array.from((e.target as HTMLSelectElement).selectedOptions);
       const values = selectedOptions.map(option => option.value);
@@ -222,13 +228,19 @@ export default function Movies() {
       return;
     }
     
-    // Handle number inputs
-    if (type === 'number') {
+    // Handle number inputs for view_count, download_count
+    if (type === 'number' && (name === 'view_count' || name === 'download_count')) {
       setUpdatedMovie(prev => ({ ...prev, [name]: parseInt(value, 10) || 0 }));
       return;
     }
     
-    // Handle regular text inputs (including video_url)
+    // Handle number input for rating (double)
+    if (type === 'number' && name === 'rating') {
+      setUpdatedMovie(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+      return;
+    }
+    
+    // Handle regular text inputs (including video_url, release_year, duration as strings)
     setUpdatedMovie(prev => ({ ...prev, [name]: value }));
   };
   
@@ -265,9 +277,9 @@ export default function Movies() {
       case 'title-desc':
         return b.title.localeCompare(a.title);
       case 'year-new':
-        return (b.release_year || 0) - (a.release_year || 0);
+        return (parseInt(b.release_year || '0') || 0) - (parseInt(a.release_year || '0') || 0);
       case 'year-old':
-        return (a.release_year || 0) - (b.release_year || 0);
+        return (parseInt(a.release_year || '0') || 0) - (parseInt(b.release_year || '0') || 0);
       default:
         return 0;
     }
@@ -289,17 +301,18 @@ export default function Movies() {
                 description: '',
                 ai_summary: '',
                 genre: [],
-                video_url: '', // Single video URL
+                quality_options: [],
+                video_url: '',
                 premium_only: false,
-                download_enabled: false,
+                download_enabled: true,
                 view_count: 0,
                 rating: 0,
                 download_count: 0,
                 is_featured: false,
                 is_trending: false,
                 tags: [],
-                release_year: new Date().getFullYear(),
-                duration: 0
+                release_year: new Date().getFullYear().toString(),
+                duration: ''
               });
             setEditMode(true);
             setPosterFile(null);
@@ -346,7 +359,7 @@ export default function Movies() {
             
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full relative z-[1001]">
+            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full relative z-[1001]">
               <form onSubmit={handleUpdateMovie}>
                 <div className="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
                   <div className="flex justify-between items-center mb-4">
@@ -364,8 +377,8 @@ export default function Movies() {
                     </button>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Left column - Form fields */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left column - Basic Info */}
                     <div className="space-y-4">
                       <div>
                         <label htmlFor="title" className="block text-sm font-medium text-gray-300">
@@ -389,9 +402,24 @@ export default function Movies() {
                         <textarea
                           id="description"
                           name="description"
-                          rows={5}
+                          rows={4}
                           value={updatedMovie.description || ''}
                           onChange={handleInputChange}
+                          className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="ai_summary" className="block text-sm font-medium text-gray-300">
+                          AI Summary
+                        </label>
+                        <textarea
+                          id="ai_summary"
+                          name="ai_summary"
+                          rows={3}
+                          value={updatedMovie.ai_summary || ''}
+                          onChange={handleInputChange}
+                          placeholder="AI-generated summary of the movie"
                           className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                         />
                       </div>
@@ -416,23 +444,69 @@ export default function Movies() {
                           Hold Ctrl (or Cmd) to select multiple genres
                         </p>
                       </div>
+
                       <div>
-  <label htmlFor="video_url" className="block text-sm font-medium text-gray-300">
-    Video URL
-  </label>
-  <input
-    type="url"
-    id="video_url"
-    name="video_url"
-    value={updatedMovie.video_url || ''}
-    onChange={handleInputChange}
-    placeholder="https://drive.google.com/file/d/..."
-    className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
-  />
-  <p className="text-xs text-gray-400 mt-1">
-    Google Drive share link for the movie file
-  </p>
-</div>
+                        <label htmlFor="tags" className="block text-sm font-medium text-gray-300">
+                          Tags
+                        </label>
+                        <input
+                          type="text"
+                          id="tags"
+                          name="tags"
+                          value={Array.isArray(updatedMovie.tags) ? updatedMovie.tags.join(', ') : ''}
+                          onChange={(e) => {
+                            const tags = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+                            setUpdatedMovie(prev => ({ ...prev, tags }));
+                          }}
+                          placeholder="action, thriller, blockbuster (comma separated)"
+                          className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          Separate tags with commas
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Middle column - Technical Details */}
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="video_url" className="block text-sm font-medium text-gray-300">
+                          Video URL
+                        </label>
+                        <input
+                          type="url"
+                          id="video_url"
+                          name="video_url"
+                          value={updatedMovie.video_url || ''}
+                          onChange={handleInputChange}
+                          placeholder="https://drive.google.com/file/d/..."
+                          className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          Google Drive share link for the movie file
+                        </p>
+                      </div>
+
+                      <div>
+                        <label htmlFor="quality_options" className="block text-sm font-medium text-gray-300">
+                          Quality Options
+                        </label>
+                        <select
+                          id="quality_options"
+                          name="quality_options"
+                          multiple
+                          value={updatedMovie.quality_options || []}
+                          onChange={handleInputChange}
+                          className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
+                        >
+                          {availableQualityOptions.map(quality => (
+                            <option key={quality} value={quality}>{quality}</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Hold Ctrl (or Cmd) to select multiple quality options
+                        </p>
+                      </div>
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -440,34 +514,82 @@ export default function Movies() {
                             Release Year
                           </label>
                           <input
-                            type="number"
+                            type="text"
                             id="release_year"
                             name="release_year"
-                            min="1900"
-                            max={new Date().getFullYear() + 5}
-                            value={updatedMovie.release_year || new Date().getFullYear()}
+                            value={updatedMovie.release_year || new Date().getFullYear().toString()}
                             onChange={handleInputChange}
+                            placeholder="2024"
                             className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                           />
                         </div>
                         
                         <div>
                           <label htmlFor="duration" className="block text-sm font-medium text-gray-300">
-                            Duration (min)
+                            Duration
+                          </label>
+                          <input
+                            type="text"
+                            id="duration"
+                            name="duration"
+                            value={updatedMovie.duration || ''}
+                            onChange={handleInputChange}
+                            placeholder="2h 30m"
+                            className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="rating" className="block text-sm font-medium text-gray-300">
+                            Rating (0-10)
                           </label>
                           <input
                             type="number"
-                            id="duration"
-                            name="duration"
-                            min="1"
-                            value={updatedMovie.duration || 0}
+                            id="rating"
+                            name="rating"
+                            min="0"
+                            max="10"
+                            step="0.1"
+                            value={updatedMovie.rating || 0}
+                            onChange={handleInputChange}
+                            className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="view_count" className="block text-sm font-medium text-gray-300">
+                            View Count
+                          </label>
+                          <input
+                            type="number"
+                            id="view_count"
+                            name="view_count"
+                            min="0"
+                            value={updatedMovie.view_count || 0}
                             onChange={handleInputChange}
                             className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                           />
                         </div>
                       </div>
+
+                      <div>
+                        <label htmlFor="download_count" className="block text-sm font-medium text-gray-300">
+                          Download Count
+                        </label>
+                        <input
+                          type="number"
+                          id="download_count"
+                          name="download_count"
+                          min="0"
+                          value={updatedMovie.download_count || 0}
+                          onChange={handleInputChange}
+                          className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
                       
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <div className="flex items-center">
                           <input
                             type="checkbox"
@@ -507,6 +629,20 @@ export default function Movies() {
                           />
                           <label htmlFor="premium_only" className="ml-2 block text-sm text-gray-300">
                             Premium Only
+                          </label>
+                        </div>
+
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="download_enabled"
+                            name="download_enabled"
+                            checked={updatedMovie.download_enabled !== false}
+                            onChange={handleInputChange}
+                            className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-600 rounded bg-gray-700"
+                          />
+                          <label htmlFor="download_enabled" className="ml-2 block text-sm text-gray-300">
+                            Download Enabled
                           </label>
                         </div>
                       </div>
@@ -624,7 +760,7 @@ export default function Movies() {
             
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full relative z-[1001]">
+            <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full relative z-[1001]">
               <div className="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-bold text-white">
@@ -643,9 +779,9 @@ export default function Movies() {
                   </button>
                 </div>
                 
-                <div className="flex flex-col md:flex-row gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Poster */}
-                  <div className="w-full md:w-1/3">
+                  <div className="lg:col-span-1">
                     <div className="aspect-[2/3] bg-gray-700 rounded overflow-hidden">
                       {selectedMovie.poster_url ? (
                         <img
@@ -668,71 +804,147 @@ export default function Movies() {
                   </div>
                   
                   {/* Movie details */}
-                  <div className="w-full md:w-2/3">
-                    <h2 className="text-2xl font-bold text-white mb-2">{selectedMovie.title}</h2>
-                    
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {selectedMovie.is_featured && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
-                          Featured
-                        </span>
-                      )}
-                      {selectedMovie.is_trending && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-300">
-                          Trending
-                        </span>
-                      )}
-                      {selectedMovie.premium_only && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-900 text-purple-300">
-                          Premium
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-400">Release Year</h4>
-                        <p className="text-white">{selectedMovie.release_year || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-400">Duration</h4>
-                        <p className="text-white">{selectedMovie.duration ? `${selectedMovie.duration} min` : 'N/A'}</p>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-400">Added On</h4>
-                        <p className="text-white">{new Date(selectedMovie.$createdAt).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-400">Movie ID</h4>
-                        <p className="text-white font-mono text-xs truncate">{selectedMovie.$id}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium text-gray-400 mb-1">Genres</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedMovie.genre && selectedMovie.genre.length > 0 ? (
-                          selectedMovie.genre.map(genre => (
-                            <span 
-                              key={genre} 
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900 text-blue-300"
-                            >
-                              {genre}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-gray-500">No genres specified</span>
+                  <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left side - Main info */}
+                    <div>
+                      <h2 className="text-2xl font-bold text-white mb-2">{selectedMovie.title}</h2>
+                      
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {selectedMovie.is_featured && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
+                            Featured
+                          </span>
+                        )}
+                        {selectedMovie.is_trending && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-300">
+                            Trending
+                          </span>
+                        )}
+                        {selectedMovie.premium_only && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-900 text-purple-300">
+                            Premium
+                          </span>
+                        )}
+                        {selectedMovie.download_enabled && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900 text-blue-300">
+                            Download Enabled
+                          </span>
                         )}
                       </div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400">Release Year</h4>
+                          <p className="text-white">{selectedMovie.release_year || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400">Duration</h4>
+                          <p className="text-white">{selectedMovie.duration || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400">Rating</h4>
+                          <p className="text-white">{selectedMovie.rating ? `${selectedMovie.rating}/10` : 'Not rated'}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400">Views</h4>
+                          <p className="text-white">{selectedMovie.view_count?.toLocaleString() || '0'}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400">Downloads</h4>
+                          <p className="text-white">{selectedMovie.download_count?.toLocaleString() || '0'}</p>
+                        </div>
+                      </div>
                     </div>
-                    
+
+                    {/* Right side - Additional info */}
                     <div>
-                      <h4 className="text-sm font-medium text-gray-400 mb-1">Description</h4>
-                      <p className="text-white whitespace-pre-line">
-                        {selectedMovie.description || 'No description available.'}
-                      </p>
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400">Added On</h4>
+                          <p className="text-white">{new Date(selectedMovie.$createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400">Movie ID</h4>
+                          <p className="text-white font-mono text-xs truncate">{selectedMovie.$id}</p>
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400 mb-2">Quality Options</h4>
+                          <div className="flex flex-wrap gap-1">
+                            {selectedMovie.quality_options && selectedMovie.quality_options.length > 0 ? (
+                              selectedMovie.quality_options.map(quality => (
+                                <span 
+                                  key={quality} 
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-900 text-indigo-300"
+                                >
+                                  {quality}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-gray-500 text-sm">No quality options specified</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400 mb-2">Genres</h4>
+                          <div className="flex flex-wrap gap-1">
+                            {selectedMovie.genre && selectedMovie.genre.length > 0 ? (
+                              selectedMovie.genre.map(genre => (
+                                <span 
+                                  key={genre} 
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300"
+                                >
+                                  {genre}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-gray-500 text-sm">No genres specified</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-400 mb-2">Tags</h4>
+                          <div className="flex flex-wrap gap-1">
+                            {selectedMovie.tags && selectedMovie.tags.length > 0 ? (
+                              selectedMovie.tags.map(tag => (
+                                <span 
+                                  key={tag} 
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300"
+                                >
+                                  {tag}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-gray-500 text-sm">No tags specified</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                </div>
+                
+                {/* Description and AI Summary */}
+                <div className="mt-6 space-y-4">
+                  {selectedMovie.description && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-400 mb-2">Description</h4>
+                      <p className="text-white whitespace-pre-line">
+                        {selectedMovie.description}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {selectedMovie.ai_summary && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-400 mb-2">AI Summary</h4>
+                      <p className="text-white whitespace-pre-line">
+                        {selectedMovie.ai_summary}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -851,6 +1063,8 @@ export default function Movies() {
                   <th className="px-6 py-3">Genres</th>
                   <th className="px-6 py-3">Year</th>
                   <th className="px-6 py-3">Duration</th>
+                  <th className="px-6 py-3">Quality</th>
+                  <th className="px-6 py-3">Views</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3 text-center">Actions</th>
                 </tr>
@@ -903,17 +1117,37 @@ export default function Movies() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1 max-w-xs">
-                        {movie.genre && Array.isArray(movie.genre) && movie.genre.length > 0 ? movie.genre.map(g => (
+                        {movie.genre && Array.isArray(movie.genre) && movie.genre.length > 0 ? movie.genre.slice(0, 2).map(g => (
                           <span key={g} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300">
                             {g}
                           </span>
                         )) : (
                           <span className="text-gray-500 text-sm">No genres</span>
                         )}
+                        {movie.genre && movie.genre.length > 2 && (
+                          <span className="text-gray-400 text-xs">+{movie.genre.length - 2} more</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">{movie.release_year || 'N/A'}</td>
-                    <td className="px-6 py-4">{movie.duration ? `${movie.duration} min` : 'N/A'}</td>
+                    <td className="px-6 py-4">{movie.duration || 'N/A'}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {movie.quality_options && Array.isArray(movie.quality_options) && movie.quality_options.length > 0 ? 
+                          movie.quality_options.slice(0, 2).map(quality => (
+                            <span key={quality} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-900 text-indigo-300">
+                              {quality}
+                            </span>
+                          )) : (
+                            <span className="text-gray-500 text-sm">N/A</span>
+                          )
+                        }
+                        {movie.quality_options && movie.quality_options.length > 2 && (
+                          <span className="text-gray-400 text-xs">+{movie.quality_options.length - 2}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">{movie.view_count?.toLocaleString() || '0'}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
@@ -982,17 +1216,18 @@ export default function Movies() {
                     description: '',
                     ai_summary: '',
                     genre: [],
-                    video_url: '', // Single video URL
+                    quality_options: [],
+                    video_url: '',
                     premium_only: false,
-                    download_enabled: false,
+                    download_enabled: true,
                     view_count: 0,
                     rating: 0,
                     download_count: 0,
                     is_featured: false,
                     is_trending: false,
                     tags: [],
-                    release_year: new Date().getFullYear(),
-                    duration: 0
+                    release_year: new Date().getFullYear().toString(),
+                    duration: ''
                   });
                 setEditMode(true);
                 setPosterFile(null);

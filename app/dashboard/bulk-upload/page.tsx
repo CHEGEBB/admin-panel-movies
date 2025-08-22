@@ -15,19 +15,20 @@ interface MovieData {
   description: string;
   ai_summary: string;
   genre: string[];
-  release_year: number;
-  duration: number;
   poster_url: string;
   quality_options: string[];
-  file_references: string;
   premium_only: boolean;
   download_enabled: boolean;
+  view_count: number;
+  rating: number;
+  download_count: number;
   is_featured: boolean;
   is_trending: boolean;
   tags: string[];
-  rating: number;
-  view_count: number;
-  download_count: number;
+  release_year: string;
+  duration: string;
+  video_url: string;
+  file_references: string;
 }
 
 interface CsvRowData {
@@ -36,24 +37,25 @@ interface CsvRowData {
   description?: string;
   ai_summary?: string;
   genre?: string;
-  release_year?: string;
-  duration?: string;
   poster_url?: string;
   quality_options?: string;
+  premium_only?: string;
+  download_enabled?: string;
+  view_count?: string;
+  rating?: string;
+  download_count?: string;
+  is_featured?: string;
+  is_trending?: string;
+  tags?: string;
+  release_year?: string;
+  duration?: string;
+  video_url?: string;
   primary_drive_720p?: string;
   file_size_720p?: string;
   primary_drive_1080p?: string;
   file_size_1080p?: string;
   primary_drive_4k?: string;
   file_size_4k?: string;
-  premium_only?: string;
-  download_enabled?: string;
-  is_featured?: string;
-  is_trending?: string;
-  tags?: string;
-  rating?: string;
-  view_count?: string;
-  download_count?: string;
 }
 
 interface CsvPreviewRow {
@@ -107,12 +109,14 @@ export default function BulkUpload() {
 
   const parseCsvRow = (row: CsvRowData): MovieData => {
     // Create file references object
-    const fileReferences: Record<string, FileReference | undefined> = {
-      '720p': {
-        primary_drive: row.primary_drive_720p || '',
+    const fileReferences: Record<string, FileReference | undefined> = {};
+
+    if (row.primary_drive_720p) {
+      fileReferences['720p'] = {
+        primary_drive: row.primary_drive_720p,
         file_size: parseInt(row.file_size_720p || '0') || 0
-      }
-    };
+      };
+    }
 
     if (row.primary_drive_1080p) {
       fileReferences['1080p'] = {
@@ -141,19 +145,20 @@ export default function BulkUpload() {
       description: row.description || '',
       ai_summary: row.ai_summary || '',
       genre: row.genre ? row.genre.split('|') : [],
-      release_year: parseInt(row.release_year || '') || new Date().getFullYear(),
-      duration: parseInt(row.duration || '') || 0,
       poster_url: row.poster_url || '',
       quality_options: row.quality_options ? row.quality_options.split('|') : ['720p'],
-      file_references: JSON.stringify(fileReferences),
       premium_only: row.premium_only === 'true',
       download_enabled: row.download_enabled !== 'false',
+      view_count: parseInt(row.view_count || '0') || 0,
+      rating: parseFloat(row.rating || '0') || 0,
+      download_count: parseInt(row.download_count || '0') || 0,
       is_featured: row.is_featured === 'true',
       is_trending: row.is_trending === 'true',
       tags: row.tags ? row.tags.split('|') : [],
-      rating: parseFloat(row.rating || '0') || 0,
-      view_count: parseInt(row.view_count || '0') || 0,
-      download_count: parseInt(row.download_count || '0') || 0
+      release_year: row.release_year || '',
+      duration: row.duration || '',
+      video_url: row.video_url || '',
+      file_references: JSON.stringify(fileReferences)
     };
   };
 
@@ -253,24 +258,25 @@ export default function BulkUpload() {
       'description',
       'ai_summary',
       'genre',
-      'release_year',
-      'duration',
       'poster_url',
       'quality_options',
+      'premium_only',
+      'download_enabled',
+      'view_count',
+      'rating',
+      'download_count',
+      'is_featured',
+      'is_trending',
+      'tags',
+      'release_year',
+      'duration',
+      'video_url',
       'primary_drive_720p',
       'file_size_720p',
       'primary_drive_1080p',
       'file_size_1080p',
       'primary_drive_4k',
-      'file_size_4k',
-      'premium_only',
-      'download_enabled',
-      'is_featured',
-      'is_trending',
-      'tags',
-      'rating',
-      'view_count',
-      'download_count'
+      'file_size_4k'
     ].join(',');
     
     const sampleRow = [
@@ -278,24 +284,25 @@ export default function BulkUpload() {
       'This is a sample movie description about DJ Afro narration',
       'AI-generated summary would go here',
       'Action|Comedy',
-      '2023',
-      '120',
       'https://example.com/poster.jpg',
       '720p|1080p',
+      'false',
+      'true',
+      '0',
+      '4.5',
+      '0',
+      'false',
+      'true',
+      'DJ Afro|Funny|Classic',
+      '2023',
+      '120',
+      'https://example.com/video.mp4',
       '1ABC123XYZ_720p',
       '800',
       '1ABC123XYZ_1080p',
       '1500',
       '',
-      '',
-      'false',
-      'true',
-      'false',
-      'true',
-      'DJ Afro|Funny|Classic',
-      '4.5',
-      '0',
-      '0'
+      ''
     ].join(',');
     
     const csvContent = `${headers}\n${sampleRow}`;
@@ -397,7 +404,7 @@ export default function BulkUpload() {
               <table className="w-full text-sm text-left">
                 <thead className="text-gray-400 bg-gray-700/50">
                   <tr>
-                    {Object.keys(csvPreview[0]).slice(0, 5).map((header, index) => (
+                    {Object.keys(csvPreview[0]).slice(0, 6).map((header, index) => (
                       <th key={index} className="px-4 py-2">
                         {header}
                       </th>
@@ -408,9 +415,9 @@ export default function BulkUpload() {
                 <tbody>
                   {csvPreview.map((row, rowIndex) => (
                     <tr key={rowIndex} className="border-b border-gray-700">
-                      {Object.values(row).slice(0, 5).map((value, valueIndex) => (
+                      {Object.values(row).slice(0, 6).map((value, valueIndex) => (
                         <td key={valueIndex} className="px-4 py-2 text-gray-300">
-                          {typeof value === 'string' && value.length > 40 ? value.substring(0, 40) + '...' : value}
+                          {typeof value === 'string' && value.length > 30 ? value.substring(0, 30) + '...' : value}
                         </td>
                       ))}
                       <td className="px-4 py-2 text-gray-300">...</td>
@@ -420,7 +427,7 @@ export default function BulkUpload() {
               </table>
             </div>
             <p className="text-gray-400 text-sm mt-2">
-              Showing preview of {csvPreview.length} rows. Full CSV may contain more data.
+              Showing preview of {csvPreview.length} rows with first 6 columns. Full CSV may contain more data.
             </p>
           </div>
         )}
@@ -460,38 +467,78 @@ export default function BulkUpload() {
       <div className="bg-gray-800 rounded-lg p-6">
         <h2 className="text-xl font-bold mb-4">CSV Format Guide</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div>
-            <h3 className="font-bold text-lg mb-2">Required Fields</h3>
-            <ul className="list-disc list-inside text-gray-300 space-y-1">
+            <h3 className="font-bold text-lg mb-3 text-red-400">Required Fields</h3>
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
               <li><strong>title</strong> - Movie title</li>
               <li><strong>description</strong> - Movie description</li>
               <li><strong>genre</strong> - Movie genres (separate multiple with |)</li>
-              <li><strong>release_year</strong> - Year of release</li>
-              <li><strong>duration</strong> - Length in minutes</li>
-              <li><strong>primary_drive_720p</strong> - Google Drive file ID for 720p</li>
+              <li><strong>release_year</strong> - Year of release (as string)</li>
+              <li><strong>duration</strong> - Length in minutes (as string)</li>
             </ul>
           </div>
           
           <div>
-            <h3 className="font-bold text-lg mb-2">Optional Fields</h3>
-            <ul className="list-disc list-inside text-gray-300 space-y-1">
+            <h3 className="font-bold text-lg mb-3 text-blue-400">Content Fields</h3>
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
+              <li><strong>ai_summary</strong> - AI-generated summary</li>
               <li><strong>poster_url</strong> - URL to poster image</li>
+              <li><strong>video_url</strong> - Direct video URL</li>
+              <li><strong>quality_options</strong> - Available qualities (720p|1080p|4K)</li>
+              <li><strong>tags</strong> - Tags separated by |</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h3 className="font-bold text-lg mb-3 text-green-400">Settings & Stats</h3>
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
               <li><strong>premium_only</strong> - true/false</li>
+              <li><strong>download_enabled</strong> - true/false</li>
               <li><strong>is_featured</strong> - true/false</li>
               <li><strong>is_trending</strong> - true/false</li>
-              <li><strong>primary_drive_1080p</strong> - Google Drive file ID for 1080p</li>
-              <li><strong>primary_drive_4k</strong> - Google Drive file ID for 4K</li>
+              <li><strong>rating</strong> - Rating (0-5)</li>
+              <li><strong>view_count</strong> - Number of views</li>
+              <li><strong>download_count</strong> - Number of downloads</li>
             </ul>
           </div>
         </div>
         
         <div className="mt-6">
-          <h3 className="font-bold text-lg mb-2">Example</h3>
-          <p className="text-gray-300 mb-2">Here&apos;s how a row in your CSV should look:</p>
-          <div className="bg-gray-700/50 p-3 rounded text-gray-300 overflow-x-auto">
+          <h3 className="font-bold text-lg mb-3 text-yellow-400">File Reference Fields</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
+              <li><strong>primary_drive_720p</strong> - Google Drive file ID for 720p</li>
+              <li><strong>file_size_720p</strong> - File size in MB for 720p</li>
+            </ul>
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
+              <li><strong>primary_drive_1080p</strong> - Google Drive file ID for 1080p</li>
+              <li><strong>file_size_1080p</strong> - File size in MB for 1080p</li>
+            </ul>
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
+              <li><strong>primary_drive_4k</strong> - Google Drive file ID for 4K</li>
+              <li><strong>file_size_4k</strong> - File size in MB for 4K</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div className="mt-8 p-4 bg-gray-700/50 rounded-lg">
+          <h3 className="font-bold text-lg mb-2">Important Notes</h3>
+          <ul className="text-gray-300 space-y-2 text-sm">
+            <li>• <strong>Strings fields:</strong> release_year and duration are stored as strings in Appwrite</li>
+            <li>• <strong>Array fields:</strong> Use | (pipe) to separate multiple values for genre, quality_options, and tags</li>
+            <li>• <strong>Boolean fields:</strong> Use &apos;true&apos; or &apos;false&apos; (case-sensitive) for boolean values</li>
+            <li>• <strong>Number fields:</strong> rating supports decimals (e.g., 4.5), others are integers</li>
+            <li>• <strong>File references:</strong> At least 720p drive ID is recommended for each movie</li>
+          </ul>
+        </div>
+        
+        <div className="mt-6">
+          <h3 className="font-bold text-lg mb-2">Sample CSV Row</h3>
+          <p className="text-gray-300 mb-2">Here&apos;s how a complete row in your CSV should look:</p>
+          <div className="bg-gray-700/50 p-3 rounded text-gray-300 overflow-x-auto text-xs">
             <code>
-              Commando,Action movie with DJ Afro narration,Action|Thriller,2005,120,https://example.com/poster.jpg,720p|1080p,1ABC123_720p,800,1DEF456_1080p,1500,false,true,false,true,Action|DJ Afro,4.5,0,0
+              &quot;Action Hero&quot;,&quot;An action-packed movie with DJ Afro narration&quot;,&quot;Epic action sequences...&quot;,&quot;Action|Thriller&quot;,&quot;https://poster.jpg&quot;,&quot;720p|1080p&quot;,&quot;false&quot;,&quot;true&quot;,&quot;0&quot;,&quot;4.5&quot;,&quot;0&quot;,&quot;false&quot;,&quot;true&quot;,&quot;Action|DJ Afro&quot;,&quot;2023&quot;,&quot;120&quot;,&quot;https://video.mp4&quot;,&quot;1ABC123_720p&quot;,&quot;800&quot;,&quot;1DEF456_1080p&quot;,&quot;1500&quot;,&quot;&quot;,&quot;&quot;
             </code>
           </div>
         </div>
