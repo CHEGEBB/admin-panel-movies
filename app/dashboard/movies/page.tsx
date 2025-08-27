@@ -43,6 +43,12 @@ export default function Movies() {
   const [selectedGenre, setSelectedGenre] = useState('All');
   const [sortBy, setSortBy] = useState('newest');
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalMovies, setTotalMovies] = useState(0);
+  const [moviesPerPage, setMoviesPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  
   // CRUD operation states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [movieToDelete, setMovieToDelete] = useState<Movie | null>(null);
@@ -74,24 +80,57 @@ export default function Movies() {
     '480p', '720p', '1080p', '1440p', '4K'
   ];
 
-  // Fetch movies on component mount
+  // Fetch movies on component mount and when pagination, filters, or sorting changes
   useEffect(() => {
     fetchMovies();
-  }, []);
+  }, [currentPage, moviesPerPage]);
   
   // Fetch movies from Appwrite
   const fetchMovies = async () => {
     try {
       setLoading(true);
       setError(''); // Clear any previous errors
-      const fetchedMovies = await getMovies(100); // Get up to 100 movies
-      setMovies(fetchedMovies as unknown as Movie[]);
+      
+      // Calculate offset for pagination
+      const offset = (currentPage - 1) * moviesPerPage;
+      
+      // Get up to 100 movies (maximum per request)
+      // In a production app, you'd implement server-side pagination with Appwrite queries
+      const allMovies = await getMovies(100);
+      
+      // Store all movies for client-side filtering
+      setMovies(allMovies as unknown as Movie[]);
+      setTotalMovies(allMovies.length);
+      setTotalPages(Math.ceil(allMovies.length / moviesPerPage));
     } catch (err) {
       setError('Failed to fetch movies. Please try again.');
       console.error('Fetch movies error:', err);
     } finally {
       setLoading(false);
     }
+  };
+  
+  // PAGINATION FUNCTIONS
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+  
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+  
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+  
+  const handleMoviesPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newMoviesPerPage = parseInt(e.target.value, 10);
+    setMoviesPerPage(newMoviesPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
   };
   
   // DELETE FUNCTIONALITY
@@ -114,6 +153,16 @@ export default function Movies() {
       setMovies(prevMovies => prevMovies.filter(m => m.$id !== movieToDelete.$id));
       setShowDeleteModal(false);
       setMovieToDelete(null);
+      
+      // Recalculate total pages
+      setTotalMovies(prev => prev - 1);
+      const newTotalPages = Math.ceil((totalMovies - 1) / moviesPerPage);
+      setTotalPages(newTotalPages);
+      
+      // If current page is now greater than total pages, go to last page
+      if (currentPage > newTotalPages) {
+        setCurrentPage(newTotalPages || 1);
+      }
     } catch (err) {
       setError('Failed to delete movie. Please try again.');
       console.error('Delete movie error:', err);
@@ -284,6 +333,23 @@ export default function Movies() {
         return 0;
     }
   });
+  
+  // Get current page of movies
+  const currentMovies = sortedMovies.slice(
+    (currentPage - 1) * moviesPerPage, 
+    currentPage * moviesPerPage
+  );
+  
+  // Recalculate total pages when filters change
+  useEffect(() => {
+    const newTotalPages = Math.ceil(filteredMovies.length / moviesPerPage);
+    setTotalPages(newTotalPages || 1);
+    
+    // If current page is now greater than total pages, go to last page
+    if (currentPage > newTotalPages) {
+      setCurrentPage(newTotalPages || 1);
+    }
+  }, [filteredMovies.length, moviesPerPage]);
 
   return (
     <div className="min-h-screen">
@@ -1053,24 +1119,24 @@ export default function Movies() {
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500 mx-auto"></div>
             <p className="mt-4 text-gray-400">Loading movies...</p>
           </div>
-        ) : sortedMovies.length > 0 ? (
+        ) : currentMovies.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-gray-700 text-gray-300">
                 <tr>
                   <th className="px-6 py-3">Poster</th>
                   <th className="px-6 py-3">Title</th>
-                  <th className="px-6 py-3">Genres</th>
-                  <th className="px-6 py-3">Year</th>
-                  <th className="px-6 py-3">Duration</th>
-                  <th className="px-6 py-3">Quality</th>
-                  <th className="px-6 py-3">Views</th>
-                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3 hidden md:table-cell">Genres</th>
+                  <th className="px-6 py-3 hidden md:table-cell">Year</th>
+                  <th className="px-6 py-3 hidden lg:table-cell">Duration</th>
+                  <th className="px-6 py-3 hidden lg:table-cell">Quality</th>
+                  <th className="px-6 py-3 hidden lg:table-cell">Views</th>
+                  <th className="px-6 py-3 hidden md:table-cell">Status</th>
                   <th className="px-6 py-3 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
-                {sortedMovies.map(movie => (
+                {currentMovies.map(movie => (
                   <tr key={movie.$id} className="hover:bg-gray-700/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="w-16 h-24 relative bg-gray-700 rounded overflow-hidden">
@@ -1113,9 +1179,27 @@ export default function Movies() {
                             </span>
                           )}
                         </div>
+                        {/* Mobile-only info */}
+                        <div className="md:hidden mt-2 flex flex-col space-y-1">
+                          <div className="text-sm text-gray-400">
+                            {movie.release_year || 'N/A'} • {movie.duration || 'N/A'}
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {movie.genre && Array.isArray(movie.genre) && movie.genre.length > 0 ? movie.genre.slice(0, 1).map(g => (
+                              <span key={g} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300">
+                                {g}
+                              </span>
+                            )) : (
+                              <span className="text-gray-500 text-sm">No genres</span>
+                            )}
+                            {movie.genre && movie.genre.length > 1 && (
+                              <span className="text-gray-400 text-xs">+{movie.genre.length - 1} more</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 hidden md:table-cell">
                       <div className="flex flex-wrap gap-1 max-w-xs">
                         {movie.genre && Array.isArray(movie.genre) && movie.genre.length > 0 ? movie.genre.slice(0, 2).map(g => (
                           <span key={g} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300">
@@ -1129,9 +1213,9 @@ export default function Movies() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">{movie.release_year || 'N/A'}</td>
-                    <td className="px-6 py-4">{movie.duration || 'N/A'}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 hidden md:table-cell">{movie.release_year || 'N/A'}</td>
+                    <td className="px-6 py-4 hidden lg:table-cell">{movie.duration || 'N/A'}</td>
+                    <td className="px-6 py-4 hidden lg:table-cell">
                       <div className="flex flex-wrap gap-1">
                         {movie.quality_options && Array.isArray(movie.quality_options) && movie.quality_options.length > 0 ? 
                           movie.quality_options.slice(0, 2).map(quality => (
@@ -1147,8 +1231,8 @@ export default function Movies() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">{movie.view_count?.toLocaleString() || '0'}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 hidden lg:table-cell">{movie.view_count?.toLocaleString() || '0'}</td>
+                    <td className="px-6 py-4 hidden md:table-cell">
                       <div className="flex items-center">
                         <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
                         <span className="text-sm">Active</span>
@@ -1247,24 +1331,76 @@ export default function Movies() {
           </div>
         )}
         
+        {/* Pagination footer */}
         <div className="p-4 bg-gray-800 border-t border-gray-700">
-          <div className="flex items-center justify-between">
-            <p className="text-gray-400">
-              Showing {sortedMovies.length} of {movies.length} movies
-            </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 mr-2">
+                Items per page:
+              </span>
+              <select
+                value={moviesPerPage}
+                onChange={handleMoviesPerPageChange}
+                className="px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+            </div>
             
-            {/* Refresh button */}
-            <button 
-              onClick={fetchMovies}
-              disabled={loading}
-              className="text-red-500 hover:text-red-400 disabled:opacity-50 flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className={loading ? 'animate-spin' : ''}>
-                <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-              </svg>
-              Refresh
-            </button>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => goToPage(1)} 
+                disabled={currentPage === 1}
+                className="px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path fillRule="evenodd" d="M8.354 1.646a.5.5 0 0 1 0 .708L2.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                  <path fillRule="evenodd" d="M12.354 1.646a.5.5 0 0 1 0 .708L6.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                </svg>
+              </button>
+              
+              <button 
+                onClick={goToPrevPage} 
+                disabled={currentPage === 1}
+                className="px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                </svg>
+              </button>
+              
+              <div className="px-4 py-1 rounded bg-gray-700 border border-gray-600 text-white">
+                <span className="text-gray-300">Page</span> <span className="font-medium">{currentPage}</span> <span className="text-gray-300">of</span> <span className="font-medium">{totalPages}</span>
+              </div>
+              
+              <button 
+                onClick={goToNextPage} 
+                disabled={currentPage === totalPages}
+                className="px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+              </button>
+              
+              <button 
+                onClick={() => goToPage(totalPages)} 
+                disabled={currentPage === totalPages}
+                className="px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path fillRule="evenodd" d="M3.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L9.293 8 3.646 2.354a.5.5 0 0 1 0-.708z"/>
+                  <path fillRule="evenodd" d="M7.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L13.293 8 7.646 2.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="text-gray-400 whitespace-nowrap">
+              Showing {currentMovies.length > 0 ? (currentPage - 1) * moviesPerPage + 1 : 0} to {Math.min(currentPage * moviesPerPage, filteredMovies.length)} of {filteredMovies.length} movies
+            </div>
           </div>
         </div>
       </div>
