@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // lib/appwrite.ts
 import { Client, Account, Databases, Storage, Models, ID, Query } from 'appwrite';
 
