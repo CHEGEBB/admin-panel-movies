@@ -121,7 +121,7 @@ export async function getAllMovies() {
 }
 
 // Get movies with pagination info (useful for UI pagination)
-export async function getMoviesPaginated(page = 1, limit = 25) {
+export async function getMoviesPaginated(page = 1, limit = 50) {
     try {
         const offset = (page - 1) * limit;
         
