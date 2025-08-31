@@ -288,12 +288,12 @@ export default function SupportPage() {
                 <div className="space-y-3">
                   <div>
                     <p className="font-medium text-green-700">WhatsApp Support</p>
-                    <p className="text-green-600">+254 700 DJAFRO</p>
+                    <p className="text-green-600">+254796562713</p>
                     <p className="text-sm text-green-500">Monday-Friday, 9 AM - 6 PM</p>
                   </div>
                   <div>
                     <p className="font-medium text-green-700">Social Media</p>
-                    <p className="text-green-600">@DjAfroStreamBox</p>
+                    <p className="text-green-600">email-chegephil24@gmail.com</p>
                     <p className="text-sm text-green-500">Twitter, Facebook, Instagram</p>
                   </div>
                   <div>
