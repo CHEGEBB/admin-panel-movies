@@ -1,298 +1,340 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-"use client"
+'use client';
+
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Head from 'next/head';
 import { Client, Account } from 'appwrite';
+import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 
-export default function ForgotPasswordPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const userId = searchParams.get('userId');
-  const secret = searchParams.get('secret');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [lottieData, setLottieData] = useState(null);
-
-  // Initialize Appwrite client
-  const client = new Client()
+// Initialize Appwrite client
+const client = new Client()
   .setEndpoint('https://cloud.appwrite.io/v1')
   .setProject('dj-afro-movies');
-  
-  const account = new Account(client);
+
+const account = new Account(client);
+
+interface URLParams {
+  userId?: string;
+  secret?: string;
+  expire?: string;
+}
+
+export default function ForgotPasswordPage() {
+  const [passwords, setPasswords] = useState({
+    password: '',
+    confirmPassword: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [success, setSuccess] = useState(false);
+  const [urlParams, setUrlParams] = useState<URLParams>({});
+  const [isValidLink, setIsValidLink] = useState(false);
+  const [isCheckingLink, setIsCheckingLink] = useState(true);
 
   useEffect(() => {
-    // Load Lottie animation data
-    fetch('/animations/forgot_password.json')
-      .then(response => response.json())
-      .then(data => setLottieData(data))
-      .catch(error => console.error('Error loading animation:', error));
-    
-    // Check if we have both userId and secret for password recovery
-    // If not, this is just the initial forgot password screen
-    if (!userId || !secret) {
-      return;
-    }
-  }, [userId, secret]);
+    // Extract URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get('userId');
+    const secret = params.get('secret');
+    const expire = params.get('expire');
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    
-    // Validate passwords
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
+    if (userId && secret) {
+      setUrlParams({ 
+        userId: userId || undefined, 
+        secret: secret || undefined, 
+        expire: expire || undefined 
+      });
+      setIsValidLink(true);
+    } else {
+      setIsValidLink(false);
     }
-    
+    setIsCheckingLink(false);
+  }, []);
+
+  const validatePassword = (password: string) => {
     if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return;
+      return 'Password must be at least 8 characters long';
     }
+    if (!/(?=.*[a-z])/.test(password)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      return 'Password must contain at least one number';
+    }
+    return '';
+  };
 
-    setIsLoading(true);
+  const handleInputChange = (field: string, value: string) => {
+    setPasswords(prev => ({ ...prev, [field]: value }));
     
-    try {
-      // Complete the password recovery
-      await account.updateRecovery(userId!, secret!, password);
-      
-      setSuccess(true);
-      // Clear form after successful update
-      setPassword('');
-      setConfirmPassword('');
-    } catch (err: any) {
-      console.error('Password recovery error:', err);
-      setError(err.message || 'Failed to reset password. Please try again.');
-    } finally {
-      setIsLoading(false);
+    // Clear errors when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
-  const handleSendRecoveryEmail = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     
-    const emailInput = document.getElementById('email') as HTMLInputElement;
-    const email = emailInput.value.trim();
-    
-    if (!email) {
-      setError('Please enter your email address');
+    const newErrors: {[key: string]: string} = {};
+
+    // Validate password
+    const passwordError = validatePassword(passwords.password);
+    if (passwordError) {
+      newErrors.password = passwordError;
+    }
+
+    // Validate confirm password
+    if (passwords.password !== passwords.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
-    
+
     setIsLoading(true);
-    
+    setErrors({});
+
     try {
-      // Send recovery email
-      await account.createRecovery(
-        email,
-        `${window.location.origin}/forgot-password`
+      await account.updateRecovery(
+        urlParams.userId!,
+        urlParams.secret!,
+        passwords.password
       );
-      
+
       setSuccess(true);
-    } catch (err: any) {
-      console.error('Send recovery email error:', err);
-      setError(err.message || 'Failed to send recovery email. Please try again.');
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      setErrors({ 
+        general: error.message || 'Failed to reset password. Please try again or request a new reset link.' 
+      });
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isCheckingLink) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8 max-w-md w-full">
+          <div className="flex justify-center mb-6">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
+          </div>
+          <p className="text-center text-white/80">Verifying reset link...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isValidLink) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8 max-w-md w-full text-center">
+          <div className="mb-6">
+            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-white mb-2">Invalid Reset Link</h1>
+            <p className="text-white/70 mb-6">
+              This password reset link is invalid or has expired. Please request a new password reset from the DJ Afro MoviesBox app.
+            </p>
+          </div>
+          
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+            <h3 className="font-semibold text-white mb-2">How to reset your password:</h3>
+            <ol className="text-left text-white/80 text-sm space-y-1">
+              <li>1. Open the DJ Afro MoviesBox app</li>
+              <li>2. Go to the login screen</li>
+              <li>3. Tap &quot;Forgot Password?&quot;</li>
+              <li>4. Enter your email address</li>
+              <li>5. Check your email for a new reset link</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8 max-w-md w-full text-center">
+          <div className="mb-6">
+            <CheckCircle className="w-20 h-20 text-green-400 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-white mb-2">Password Reset Successful!</h1>
+            <p className="text-white/80 mb-6">
+              Your password has been successfully updated. You can now log in to the DJ Afro MoviesBox app with your new password.
+            </p>
+          </div>
+          
+          <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl p-6 border border-white/20 mb-6">
+            <h3 className="font-semibold text-white mb-3 flex items-center justify-center gap-2">
+              <ArrowLeft className="w-5 h-5" />
+              Next Steps
+            </h3>
+            <div className="space-y-3 text-left">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold mt-0.5">1</div>
+                <p className="text-white/90 text-sm">Open the DJ Afro MoviesBox app on your device</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold mt-0.5">2</div>
+                <p className="text-white/90 text-sm">Use your email and new password to log in</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold mt-0.5">3</div>
+                <p className="text-white/90 text-sm">Continue enjoying DJ Afro movies!</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+            <p className="text-white/70 text-sm">
+              For security reasons, you cannot browse this website. This page is only for password resets.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <Head>
-        <title>Reset Password | DJ Afro MoviesBox</title>
-        <meta name="description" content="Reset your password for DJ Afro MoviesBox" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-      
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 to-black text-white">
-        <nav className="p-4 border-b border-gray-800">
-          <div className="max-w-7xl mx-auto flex items-center">
-            <div className="bg-blue-600 p-2 rounded-lg mr-3 shadow-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-              </svg>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8 max-w-md w-full">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="mb-4">
+            <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl mx-auto flex items-center justify-center mb-4">
+              <Lock className="w-8 h-8 text-white" />
             </div>
-            <span className="text-xl font-bold">DJ Afro MoviesBox</span>
+            <h1 className="text-2xl font-bold text-white mb-2">Reset Your Password</h1>
+            <p className="text-white/70 text-sm">
+              Create a new secure password for your DJ Afro MoviesBox account
+            </p>
           </div>
-        </nav>
-        
-        <main className="flex-grow flex items-center justify-center p-4">
-          <div className="bg-gray-800 bg-opacity-50 backdrop-blur-lg rounded-xl shadow-2xl overflow-hidden w-full max-w-md">
-            <div className="p-8">
-             {/* Replace the Lottie block with this SVG */}
-<div className="flex justify-center mb-4">
-  <svg 
-    width="180" 
-    height="180" 
-    viewBox="0 0 180 180" 
-    className="animate-pulse"
-  >
-    {/* Example: Simple animated circle */}
-    <circle 
-      cx="90" 
-      cy="90" 
-      r="60" 
-      fill="none" 
-      stroke="#3B82F6" 
-      strokeWidth="4"
-      className="animate-spin"
-      style={{
-        transformOrigin: 'center',
-        animationDuration: '2s'
-      }}
-    />
-    <circle 
-      cx="90" 
-      cy="90" 
-      r="30" 
-      fill="#3B82F6" 
-      opacity="0.6"
-    />
-  </svg>
-</div>
-              
-              <h1 className="text-2xl font-bold text-center mb-2">
-                {userId && secret ? 'Create New Password' : 'Reset Your Password'}
-              </h1>
-              
-              <p className="text-gray-300 text-center mb-6">
-                {userId && secret 
-                  ? 'Enter your new password below' 
-                  : 'Enter your email to receive a password reset link'
-                }
+        </div>
+
+        {/* Error Message */}
+        {errors.general && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <p className="text-red-300 text-sm">{errors.general}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Password Field */}
+          <div>
+            <label className="block text-white font-medium mb-2">New Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={passwords.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all pr-12"
+                placeholder="Enter your new password"
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                disabled={isLoading}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            {errors.password && (
+              <p className="mt-2 text-red-300 text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {errors.password}
               </p>
-              
-              {error && (
-                <div className="bg-red-500 bg-opacity-10 border border-red-500 text-red-500 px-4 py-3 rounded-lg mb-6 flex items-start">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <span>{error}</span>
-                </div>
-              )}
-              
-              {success ? (
-                <div className="text-center">
-                  <div className="bg-green-500 bg-opacity-10 border border-green-500 text-green-500 px-4 py-3 rounded-lg mb-6">
-                    <p>
-                      {userId && secret
-                        ? 'Your password has been reset successfully!'
-                        : 'Password reset instructions have been sent to your email.'
-                      }
-                    </p>
-                  </div>
-                  
-                  <p className="text-gray-300 mb-6">
-                    {userId && secret
-                      ? 'You can now return to the app and log in with your new password.'
-                      : 'Please check your inbox and follow the instructions in the email.'
-                    }
-                  </p>
-                  
-                  <a 
-                    href="djafromoviesbox://" 
-                    className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 ease-in-out"
-                  >
-                    Return to App
-                  </a>
-                </div>
-              ) : (
-                <form onSubmit={userId && secret ? handleResetPassword : handleSendRecoveryEmail}>
-                  {userId && secret ? (
-                    <>
-                      <div className="mb-4">
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
-                          New Password
-                        </label>
-                        <input
-                          type="password"
-                          id="password"
-                          className="w-full bg-gray-700 bg-opacity-50 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 outline-none transition duration-200 ease-in-out"
-                          placeholder="Enter new password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                          minLength={8}
-                        />
-                      </div>
-                      
-                      <div className="mb-6">
-                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">
-                          Confirm Password
-                        </label>
-                        <input
-                          type="password"
-                          id="confirmPassword"
-                          className="w-full bg-gray-700 bg-opacity-50 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 outline-none transition duration-200 ease-in-out"
-                          placeholder="Confirm new password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          required
-                          minLength={8}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="mb-6">
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        className="w-full bg-gray-700 bg-opacity-50 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 outline-none transition duration-200 ease-in-out"
-                        placeholder="Enter your email"
-                        required
-                      />
-                    </div>
-                  )}
-                  
-                  <button
-                    type="submit"
-                    className={`w-full font-bold py-3 px-4 rounded-lg transition duration-200 ease-in-out ${
-                      isLoading
-                        ? 'bg-gray-600 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    } text-white`}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </span>
-                    ) : userId && secret ? (
-                      'Reset Password'
-                    ) : (
-                      'Send Reset Link'
-                    )}
-                  </button>
-                </form>
-              )}
+            )}
+          </div>
+
+          {/* Confirm Password Field */}
+          <div>
+            <label className="block text-white font-medium mb-2">Confirm New Password</label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={passwords.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all pr-12"
+                placeholder="Confirm your new password"
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                disabled={isLoading}
+              >
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
-            
-            <div className="p-6 bg-gray-900 bg-opacity-50 border-t border-gray-700">
-              <p className="text-center text-gray-400 text-sm">
-                Return to the DJ Afro MoviesBox app to login once you&apos;ve reset your password.
+            {errors.confirmPassword && (
+              <p className="mt-2 text-red-300 text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {errors.confirmPassword}
               </p>
-            </div>
+            )}
           </div>
-        </main>
-        
-        <footer className="border-t border-gray-800 py-4">
-          <div className="max-w-7xl mx-auto px-4 text-center text-gray-400 text-sm">
-            &copy; {new Date().getFullYear()} DJ Afro MoviesBox. All rights reserved.
+
+          {/* Password Requirements */}
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+            <h3 className="text-white font-medium mb-3 text-sm">Password Requirements:</h3>
+            <ul className="space-y-1 text-white/70 text-sm">
+              <li className={`flex items-center gap-2 ${passwords.password.length >= 8 ? 'text-green-400' : ''}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${passwords.password.length >= 8 ? 'bg-green-400' : 'bg-white/30'}`}></div>
+                At least 8 characters long
+              </li>
+              <li className={`flex items-center gap-2 ${/(?=.*[a-z])/.test(passwords.password) ? 'text-green-400' : ''}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*[a-z])/.test(passwords.password) ? 'bg-green-400' : 'bg-white/30'}`}></div>
+                One lowercase letter
+              </li>
+              <li className={`flex items-center gap-2 ${/(?=.*[A-Z])/.test(passwords.password) ? 'text-green-400' : ''}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*[A-Z])/.test(passwords.password) ? 'bg-green-400' : 'bg-white/30'}`}></div>
+                One uppercase letter
+              </li>
+              <li className={`flex items-center gap-2 ${/(?=.*\d)/.test(passwords.password) ? 'text-green-400' : ''}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*\d)/.test(passwords.password) ? 'bg-green-400' : 'bg-white/30'}`}></div>
+                One number
+              </li>
+            </ul>
           </div>
-        </footer>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isLoading || !passwords.password || !passwords.confirmPassword}
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                Updating Password...
+              </div>
+            ) : (
+              'Update Password'
+            )}
+          </button>
+        </form>
+
+        {/* Footer */}
+        <div className="mt-8 pt-6 border-t border-white/10">
+          <p className="text-center text-white/60 text-sm">
+            This is a secure password reset page for DJ Afro MoviesBox users only.
+          </p>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
