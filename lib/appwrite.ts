@@ -17,14 +17,14 @@ export const DATABASE_ID = 'movies_db';
 export const MOVIES_COLLECTION_ID = 'movies';
 export const MEDIA_BUCKET_ID = 'media_files';
 
-// Define Movie interface - UPDATED to match your form data structure
+// Define Movie interface
 export interface MovieData {
     title: string;
     description: string;
     ai_summary?: string;
-    genre: string[]; // Changed from string to string[]
+    genre: string[];
     poster_url: string;
-    quality_options: string[]; // Changed from string to string[]
+    quality_options: string[];
     premium_only: boolean;
     download_enabled: boolean;
     view_count: number;
@@ -32,70 +32,19 @@ export interface MovieData {
     download_count: number;
     is_featured: boolean;
     is_trending: boolean;
-    tags: string[]; // Added missing tags field
+    tags: string[];
     release_year: string;
     duration: string;
     video_url: string;
-    [key: string]: any; // Allow additional fields
+    [key: string]: any;
 }
 
-// Movie operations - FIXED VERSION
-export async function getMovies(limit?: number) {
-    try {
-        const queries = [];
-        
-        // If no limit specified or limit is high, fetch all movies using pagination
-        if (!limit || limit > 25) {
-            let allDocuments: any[] = [];
-            let offset = 0;
-            const batchSize = 25; // Appwrite's max limit per request
-            let hasMore = true;
-
-            while (hasMore) {
-                const response = await databases.listDocuments(
-                    DATABASE_ID,
-                    MOVIES_COLLECTION_ID,
-                    [
-                        Query.limit(batchSize),
-                        Query.offset(offset)
-                    ]
-                );
-
-                allDocuments = [...allDocuments, ...response.documents];
-                
-                // Check if we have more documents to fetch
-                hasMore = response.documents.length === batchSize;
-                offset += batchSize;
-
-                // If user specified a limit, respect it
-                if (limit && allDocuments.length >= limit) {
-                    allDocuments = allDocuments.slice(0, limit);
-                    break;
-                }
-            }
-
-            return allDocuments;
-        } else {
-            // If limit is 25 or less, use simple query
-            const response = await databases.listDocuments(
-                DATABASE_ID,
-                MOVIES_COLLECTION_ID,
-                [Query.limit(limit)]
-            );
-            return response.documents;
-        }
-    } catch (error) {
-        console.error('Error fetching movies:', error);
-        throw error;
-    }
-}
-
-// Alternative function to get all movies (simpler approach)
+// FIXED: Get all movies using proper pagination
 export async function getAllMovies() {
     try {
         let allDocuments: any[] = [];
         let offset = 0;
-        const batchSize = 25;
+        const batchSize = 100; // Increase batch size for better performance
         let hasMore = true;
 
         while (hasMore) {
@@ -104,18 +53,83 @@ export async function getAllMovies() {
                 MOVIES_COLLECTION_ID,
                 [
                     Query.limit(batchSize),
-                    Query.offset(offset)
+                    Query.offset(offset),
+                    Query.orderDesc('$createdAt') // Order by creation date
                 ]
             );
 
             allDocuments = [...allDocuments, ...response.documents];
             hasMore = response.documents.length === batchSize;
             offset += batchSize;
+
+            // Safety check to prevent infinite loops
+            if (offset > 10000) {
+                console.warn('Breaking pagination loop at 10,000 movies');
+                break;
+            }
         }
 
+        console.log(`Fetched ${allDocuments.length} total movies`);
         return allDocuments;
     } catch (error) {
         console.error('Error fetching all movies:', error);
+        throw error;
+    }
+}
+
+// Get limited number of movies (for recent movies, etc.)
+export async function getMovies(limit: number = 100) {
+    try {
+        const response = await databases.listDocuments(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            [
+                Query.limit(Math.min(limit, 100)), // Appwrite max is 100
+                Query.orderDesc('$createdAt')
+            ]
+        );
+        return response.documents;
+    } catch (error) {
+        console.error('Error fetching movies:', error);
+        throw error;
+    }
+}
+
+// Get movies with specific filters
+export async function getMoviesByFilter(filters: {
+    featured?: boolean;
+    trending?: boolean;
+    premium?: boolean;
+    genre?: string;
+    limit?: number;
+}) {
+    try {
+        const queries = [];
+        
+        if (filters.featured !== undefined) {
+            queries.push(Query.equal('is_featured', filters.featured));
+        }
+        if (filters.trending !== undefined) {
+            queries.push(Query.equal('is_trending', filters.trending));
+        }
+        if (filters.premium !== undefined) {
+            queries.push(Query.equal('premium_only', filters.premium));
+        }
+        if (filters.genre) {
+            queries.push(Query.contains('genre', filters.genre));
+        }
+        
+        queries.push(Query.limit(filters.limit || 25));
+        queries.push(Query.orderDesc('$createdAt'));
+
+        const response = await databases.listDocuments(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            queries
+        );
+        return response.documents;
+    } catch (error) {
+        console.error('Error fetching filtered movies:', error);
         throw error;
     }
 }
@@ -129,8 +143,9 @@ export async function getMoviesPaginated(page = 1, limit = 50) {
             DATABASE_ID,
             MOVIES_COLLECTION_ID,
             [
-                Query.limit(limit),
-                Query.offset(offset)
+                Query.limit(Math.min(limit, 100)),
+                Query.offset(offset),
+                Query.orderDesc('$createdAt')
             ]
         );
 
@@ -144,6 +159,150 @@ export async function getMoviesPaginated(page = 1, limit = 50) {
         };
     } catch (error) {
         console.error('Error fetching movies with pagination:', error);
+        throw error;
+    }
+}
+
+// Get movie statistics efficiently
+export async function getMovieStats() {
+    try {
+        // Get total count
+        const totalResponse = await databases.listDocuments(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            [Query.limit(1)]
+        );
+        const totalMovies = totalResponse.total;
+
+        // Get featured count
+        const featuredResponse = await databases.listDocuments(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            [Query.equal('is_featured', true), Query.limit(1)]
+        );
+        const featuredCount = featuredResponse.total;
+
+        // Get trending count
+        const trendingResponse = await databases.listDocuments(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            [Query.equal('is_trending', true), Query.limit(1)]
+        );
+        const trendingCount = trendingResponse.total;
+
+        // Get premium count
+        const premiumResponse = await databases.listDocuments(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            [Query.equal('premium_only', true), Query.limit(1)]
+        );
+        const premiumCount = premiumResponse.total;
+
+        return {
+            totalMovies,
+            featuredMovies: featuredCount,
+            trendingMovies: trendingCount,
+            premiumMovies: premiumCount
+        };
+    } catch (error) {
+        console.error('Error fetching movie stats:', error);
+        throw error;
+    }
+}
+
+// Get top movies by views
+export async function getTopMoviesByViews(limit = 10) {
+    try {
+        const response = await databases.listDocuments(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            [
+                Query.limit(limit),
+                Query.orderDesc('view_count')
+            ]
+        );
+        return response.documents;
+    } catch (error) {
+        console.error('Error fetching top movies by views:', error);
+        throw error;
+    }
+}
+
+// Get top movies by downloads
+export async function getTopMoviesByDownloads(limit = 10) {
+    try {
+        const response = await databases.listDocuments(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            [
+                Query.limit(limit),
+                Query.orderDesc('download_count')
+            ]
+        );
+        return response.documents;
+    } catch (error) {
+        console.error('Error fetching top movies by downloads:', error);
+        throw error;
+    }
+}
+
+// Get movies by genre with counts
+export async function getGenreStats() {
+    try {
+        // This is a simplified approach - for better performance, 
+        // consider implementing this on the backend or using Appwrite Functions
+        const allMovies = await getAllMovies();
+        const genreMap = new Map();
+
+        allMovies.forEach(movie => {
+            if (movie.genre && Array.isArray(movie.genre)) {
+                movie.genre.forEach((g: any) => {
+                    genreMap.set(g, (genreMap.get(g) || 0) + 1);
+                });
+            }
+        });
+
+        return Array.from(genreMap.entries())
+            .map(([genre, count]) => ({ genre, count }))
+            .sort((a, b) => b.count - a.count);
+    } catch (error) {
+        console.error('Error fetching genre stats:', error);
+        throw error;
+    }
+}
+
+// Get single movie by ID
+export async function getMovieById(movieId: string) {
+    try {
+        const response = await databases.getDocument(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            movieId
+        );
+        return response;
+    } catch (error) {
+        console.error('Error fetching movie by ID:', error);
+        throw error;
+    }
+}
+
+// Search movies by title or description
+export async function searchMovies(searchTerm: string, limit = 25) {
+    try {
+        const response = await databases.listDocuments(
+            DATABASE_ID,
+            MOVIES_COLLECTION_ID,
+            [
+                Query.or([
+                    Query.search('title', searchTerm),
+                    Query.search('description', searchTerm)
+                ]),
+                Query.limit(limit)
+            ]
+        );
+        return response.documents;
+    } catch (error) {
+        console.error('Error searching movies:', error);
         throw error;
     }
 }
@@ -206,7 +365,41 @@ export async function updateMovie(movieId: string, updates: Partial<MovieData>) 
     }
 }
 
-// Authentication
+// Increment view count
+export async function incrementViewCount(movieId: string) {
+    try {
+        const movie = await getMovieById(movieId);
+        const currentViews = movie.view_count || 0;
+        
+        await updateMovie(movieId, {
+            view_count: currentViews + 1
+        });
+        
+        return currentViews + 1;
+    } catch (error) {
+        console.error('Error incrementing view count:', error);
+        throw error;
+    }
+}
+
+// Increment download count
+export async function incrementDownloadCount(movieId: string) {
+    try {
+        const movie = await getMovieById(movieId);
+        const currentDownloads = movie.download_count || 0;
+        
+        await updateMovie(movieId, {
+            download_count: currentDownloads + 1
+        });
+        
+        return currentDownloads + 1;
+    } catch (error) {
+        console.error('Error incrementing download count:', error);
+        throw error;
+    }
+}
+
+// Authentication functions
 export async function login(email: string, password: string) {
     try {
         const session = await account.createEmailPasswordSession(email, password);
