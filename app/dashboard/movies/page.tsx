@@ -1,63 +1,63 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { 
-  getMovies, 
-  deleteMovie, 
-  updateMovie, 
-  uploadPoster, 
-  Models, 
-  DATABASE_ID, 
+import { useState, useEffect } from "react";
+import {
+  getMovies,
+  deleteMovie,
+  updateMovie,
+  uploadPoster,
+  Models,
+  DATABASE_ID,
   MOVIES_COLLECTION_ID,
   storage,
-  MEDIA_BUCKET_ID
-} from '@/lib/appwrite';
+  MEDIA_BUCKET_ID,
+} from "@/lib/appwrite";
 
 // Define the Movie type based on Appwrite document structure
 interface Movie extends Models.Document {
-    title: string;
-    description?: string;
-    ai_summary?: string;
-    genre?: string[];
-    poster_url?: string;
-    quality_options?: string[];
-    video_url?: string;
-    premium_only?: boolean;
-    download_enabled?: boolean;
-    view_count?: number;
-    rating?: number;
-    download_count?: number;
-    is_featured?: boolean;
-    is_trending?: boolean;
-    tags?: string[];
-    release_year?: string;
-    duration?: string;
+  title: string;
+  description?: string;
+  ai_summary?: string;
+  genre?: string[];
+  poster_url?: string;
+  quality_options?: string[];
+  video_url?: string;
+  premium_only?: boolean;
+  download_enabled?: boolean;
+  view_count?: number;
+  rating?: number;
+  download_count?: number;
+  is_featured?: boolean;
+  is_trending?: boolean;
+  tags?: string[];
+  release_year?: string;
+  duration?: string;
 }
 
 export default function Movies() {
   // State management
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState('All');
-  const [sortBy, setSortBy] = useState('newest');
-  
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedGenre, setSelectedGenre] = useState("All");
+  const [sortBy, setSortBy] = useState("newest");
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalMovies, setTotalMovies] = useState(0);
   const [moviesPerPage, setMoviesPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // CRUD operation states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [movieToDelete, setMovieToDelete] = useState<Movie | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // View movie details state
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  
+
   // Edit movie state
   const [editMode, setEditMode] = useState(false);
   const [movieToEdit, setMovieToEdit] = useState<Movie | null>(null);
@@ -65,74 +65,88 @@ export default function Movies() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
-  
+
   // Available genres for filter dropdown
   const availableGenres = [
-    'All',
-    'Action', 'Comedy', 'Horror', 'Drama', 'Romance', 
-    'Sci-Fi', 'Thriller', 'Adventure', 'Fantasy', 'Animation',
-    'Documentary', 'Crime', 'Mystery', 'War', 'Western',
-    'Nollywood', 'Bollywood', 'Asian'
+    "All",
+    "Action",
+    "Comedy",
+    "Horror",
+    "Drama",
+    "Romance",
+    "Sci-Fi",
+    "Thriller",
+    "Adventure",
+    "Fantasy",
+    "Animation",
+    "Documentary",
+    "Crime",
+    "Mystery",
+    "War",
+    "Western",
+    "Nollywood",
+    "Bollywood",
+    "Asian",
   ];
 
   // Available quality options
-  const availableQualityOptions = [
-    '480p', '720p', '1080p', '1440p', '4K'
-  ];
+  const availableQualityOptions = ["480p", "720p", "1080p", "1440p", "4K"];
 
   // Fetch movies on component mount and when pagination, filters, or sorting changes
   useEffect(() => {
     fetchMovies();
   }, [currentPage, moviesPerPage]);
-  
+
   // Fetch movies from Appwrite
   const fetchMovies = async () => {
     try {
       setLoading(true);
-      setError(''); // Clear any previous errors
-      
+      setError(""); // Clear any previous errors
+
       // Calculate offset for pagination
       const offset = (currentPage - 1) * moviesPerPage;
-      
+
       // Get up to 100 movies (maximum per request)
       // In a production app, you'd implement server-side pagination with Appwrite queries
       const allMovies = await getMovies(100);
-      
+
       // Store all movies for client-side filtering
       setMovies(allMovies as unknown as Movie[]);
       setTotalMovies(allMovies.length);
       setTotalPages(Math.ceil(allMovies.length / moviesPerPage));
     } catch (err) {
-      setError('Failed to fetch movies. Please try again.');
-      console.error('Fetch movies error:', err);
+      setError("Failed to fetch movies. Please try again.");
+      console.error("Fetch movies error:", err);
     } finally {
       setLoading(false);
     }
   };
-  
+
   // PAGINATION FUNCTIONS
   const goToPage = (page: number) => {
     setCurrentPage(page);
   };
-  
+
   const goToNextPage = () => {
     if (currentPage < totalPages) {
-      setCurrentPage(prev => prev + 1);
+      setCurrentPage((prev) => prev + 1);
     }
   };
-  
+
   const goToPrevPage = () => {
     if (currentPage > 1) {
-      setCurrentPage(prev => prev - 1);
+      setCurrentPage((prev) => prev - 1);
     }
   };
-  
-  const handleMoviesPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+
+  const handleMoviesPerPageChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     const newMoviesPerPage = parseInt(e.target.value, 10);
     setMoviesPerPage(newMoviesPerPage);
     setCurrentPage(1); // Reset to first page when changing items per page
   };
-  
+
   // DELETE FUNCTIONALITY
   const handleDeleteClick = (movie: Movie) => {
     setMovieToDelete(movie);
@@ -141,41 +155,43 @@ export default function Movies() {
     setShowViewModal(false);
     setEditMode(false);
   };
-  
+
   const confirmDelete = async () => {
     if (!movieToDelete) return;
-    
+
     try {
       setIsDeleting(true);
-      setError(''); // Clear any previous errors
+      setError(""); // Clear any previous errors
       await deleteMovie(movieToDelete.$id);
       // Remove the deleted movie from the local state
-      setMovies(prevMovies => prevMovies.filter(m => m.$id !== movieToDelete.$id));
+      setMovies((prevMovies) =>
+        prevMovies.filter((m) => m.$id !== movieToDelete.$id)
+      );
       setShowDeleteModal(false);
       setMovieToDelete(null);
-      
+
       // Recalculate total pages
-      setTotalMovies(prev => prev - 1);
+      setTotalMovies((prev) => prev - 1);
       const newTotalPages = Math.ceil((totalMovies - 1) / moviesPerPage);
       setTotalPages(newTotalPages);
-      
+
       // If current page is now greater than total pages, go to last page
       if (currentPage > newTotalPages) {
         setCurrentPage(newTotalPages || 1);
       }
     } catch (err) {
-      setError('Failed to delete movie. Please try again.');
-      console.error('Delete movie error:', err);
+      setError("Failed to delete movie. Please try again.");
+      console.error("Delete movie error:", err);
     } finally {
       setIsDeleting(false);
     }
   };
-  
+
   const cancelDelete = () => {
     setShowDeleteModal(false);
     setMovieToDelete(null);
   };
-  
+
   // VIEW FUNCTIONALITY
   const handleViewClick = (movie: Movie) => {
     setSelectedMovie(movie);
@@ -184,7 +200,7 @@ export default function Movies() {
     setShowDeleteModal(false);
     setEditMode(false);
   };
-  
+
   // EDIT FUNCTIONALITY
   const handleEditClick = (movie: Movie) => {
     setMovieToEdit(movie);
@@ -195,18 +211,18 @@ export default function Movies() {
     setShowViewModal(false);
     setShowDeleteModal(false);
   };
-  
+
   const handleUpdateMovie = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!movieToEdit) return;
-    
+
     try {
       setIsUpdating(true);
-      setError('');
-      
+      setError("");
+
       const updates: Partial<Movie> = { ...updatedMovie };
-      
+
       // Handle poster upload if a new file was selected
       if (posterFile) {
         const uploadResult = await uploadPoster(posterFile);
@@ -214,43 +230,48 @@ export default function Movies() {
         const fileUrl = storage.getFileView(MEDIA_BUCKET_ID, fileId).toString();
         updates.poster_url = fileUrl;
       }
-      
+
       // Remove Appwrite document metadata properties before updating
       const cleanUpdates = Object.fromEntries(
-        Object.entries(updates).filter(([key]) => 
-          !key.startsWith('$') && key !== '$id' && key !== '$createdAt' && key !== '$updatedAt'
+        Object.entries(updates).filter(
+          ([key]) =>
+            !key.startsWith("$") &&
+            key !== "$id" &&
+            key !== "$createdAt" &&
+            key !== "$updatedAt"
         )
       );
-      
+
       // Update the movie in Appwrite
       const updated = await updateMovie(movieToEdit.$id, cleanUpdates);
-      
+
       // Update the local state
-      setMovies(prevMovies => 
-        prevMovies.map(m => m.$id === updated.$id ? updated as unknown as Movie : m)
+      setMovies((prevMovies) =>
+        prevMovies.map((m) =>
+          m.$id === updated.$id ? (updated as unknown as Movie) : m
+        )
       );
-      
+
       // Reset edit mode
       setEditMode(false);
       setMovieToEdit(null);
       setUpdatedMovie({});
       setPosterFile(null);
       setPosterPreview(null);
-      
     } catch (err) {
-      setError('Failed to update movie. Please try again.');
-      console.error('Update movie error:', err);
+      setError("Failed to update movie. Please try again.");
+      console.error("Update movie error:", err);
     } finally {
       setIsUpdating(false);
     }
   };
-  
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setPosterFile(file);
-    
+
     // Create a preview URL
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -258,41 +279,53 @@ export default function Movies() {
     };
     reader.readAsDataURL(file);
   };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value, type } = e.target;
-    
-    if (name === 'genre' || name === 'tags' || name === 'quality_options') {
+
+    if (name === "genre" || name === "tags" || name === "quality_options") {
       // Handle multi-select for arrays
-      const selectedOptions = Array.from((e.target as HTMLSelectElement).selectedOptions);
-      const values = selectedOptions.map(option => option.value);
-      setUpdatedMovie(prev => ({ ...prev, [name]: values }));
+      const selectedOptions = Array.from(
+        (e.target as HTMLSelectElement).selectedOptions
+      );
+      const values = selectedOptions.map((option) => option.value);
+      setUpdatedMovie((prev) => ({ ...prev, [name]: values }));
       return;
     }
-    
+
     // Handle checkbox values (boolean)
-    if (type === 'checkbox') {
+    if (type === "checkbox") {
       const checked = (e.target as HTMLInputElement).checked;
-      setUpdatedMovie(prev => ({ ...prev, [name]: checked }));
+      setUpdatedMovie((prev) => ({ ...prev, [name]: checked }));
       return;
     }
-    
+
     // Handle number inputs for view_count, download_count
-    if (type === 'number' && (name === 'view_count' || name === 'download_count')) {
-      setUpdatedMovie(prev => ({ ...prev, [name]: parseInt(value, 10) || 0 }));
+    if (
+      type === "number" &&
+      (name === "view_count" || name === "download_count")
+    ) {
+      setUpdatedMovie((prev) => ({
+        ...prev,
+        [name]: parseInt(value, 10) || 0,
+      }));
       return;
     }
-    
+
     // Handle number input for rating (double)
-    if (type === 'number' && name === 'rating') {
-      setUpdatedMovie(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+    if (type === "number" && name === "rating") {
+      setUpdatedMovie((prev) => ({ ...prev, [name]: parseFloat(value) || 0 }));
       return;
     }
-    
+
     // Handle regular text inputs (including video_url, release_year, duration as strings)
-    setUpdatedMovie(prev => ({ ...prev, [name]: value }));
+    setUpdatedMovie((prev) => ({ ...prev, [name]: value }));
   };
-  
+
   const cancelEdit = () => {
     setEditMode(false);
     setMovieToEdit(null);
@@ -300,51 +333,65 @@ export default function Movies() {
     setPosterFile(null);
     setPosterPreview(null);
   };
-  
+
   // FILTER AND SORT MOVIES
-  const filteredMovies = movies.filter(movie => {
+  const filteredMovies = movies.filter((movie) => {
     // Search filter - check title and description
-    const matchesSearch = movie.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         movie.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch =
+      movie.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      movie.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
     // Genre filter - check if movie has the selected genre
-    const matchesGenre = selectedGenre === 'All' || 
-                        (movie.genre && Array.isArray(movie.genre) && movie.genre.includes(selectedGenre));
-    
+    const matchesGenre =
+      selectedGenre === "All" ||
+      (movie.genre &&
+        Array.isArray(movie.genre) &&
+        movie.genre.includes(selectedGenre));
+
     return matchesSearch && matchesGenre;
   });
-  
+
   // Sort movies
   const sortedMovies = [...filteredMovies].sort((a, b) => {
     switch (sortBy) {
-      case 'newest':
-        return new Date(b.$createdAt).getTime() - new Date(a.$createdAt).getTime();
-      case 'oldest':
-        return new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime();
-      case 'title-asc':
+      case "newest":
+        return (
+          new Date(b.$createdAt).getTime() - new Date(a.$createdAt).getTime()
+        );
+      case "oldest":
+        return (
+          new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime()
+        );
+      case "title-asc":
         return a.title.localeCompare(b.title);
-      case 'title-desc':
+      case "title-desc":
         return b.title.localeCompare(a.title);
-      case 'year-new':
-        return (parseInt(b.release_year || '0') || 0) - (parseInt(a.release_year || '0') || 0);
-      case 'year-old':
-        return (parseInt(a.release_year || '0') || 0) - (parseInt(b.release_year || '0') || 0);
+      case "year-new":
+        return (
+          (parseInt(b.release_year || "0") || 0) -
+          (parseInt(a.release_year || "0") || 0)
+        );
+      case "year-old":
+        return (
+          (parseInt(a.release_year || "0") || 0) -
+          (parseInt(b.release_year || "0") || 0)
+        );
       default:
         return 0;
     }
   });
-  
+
   // Get current page of movies
   const currentMovies = sortedMovies.slice(
-    (currentPage - 1) * moviesPerPage, 
+    (currentPage - 1) * moviesPerPage,
     currentPage * moviesPerPage
   );
-  
+
   // Recalculate total pages when filters change
   useEffect(() => {
     const newTotalPages = Math.ceil(filteredMovies.length / moviesPerPage);
     setTotalPages(newTotalPages || 1);
-    
+
     // If current page is now greater than total pages, go to last page
     if (currentPage > newTotalPages) {
       setCurrentPage(newTotalPages || 1);
@@ -358,28 +405,28 @@ export default function Movies() {
           <h1 className="text-3xl font-bold mb-2">Movies Management</h1>
           <p className="text-gray-400">View, edit, and delete your movies</p>
         </div>
-        
-        <button 
+
+        <button
           onClick={() => {
             setMovieToEdit(null);
             setUpdatedMovie({
-                title: '',
-                description: '',
-                ai_summary: '',
-                genre: [],
-                quality_options: [],
-                video_url: '',
-                premium_only: false,
-                download_enabled: true,
-                view_count: 0,
-                rating: 0,
-                download_count: 0,
-                is_featured: false,
-                is_trending: false,
-                tags: [],
-                release_year: new Date().getFullYear().toString(),
-                duration: ''
-              });
+              title: "",
+              description: "",
+              ai_summary: "",
+              genre: [],
+              quality_options: [],
+              video_url: "",
+              premium_only: false,
+              download_enabled: true,
+              view_count: 0,
+              rating: 0,
+              download_count: 0,
+              is_featured: false,
+              is_trending: false,
+              tags: [],
+              release_year: new Date().getFullYear().toString(),
+              duration: "",
+            });
             setEditMode(true);
             setPosterFile(null);
             setPosterPreview(null);
@@ -389,109 +436,144 @@ export default function Movies() {
           }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors flex items-center gap-2 self-start md:self-auto mt-4 md:mt-0"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            fill="currentColor"
+            viewBox="0 0 16 16"
+          >
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
           </svg>
           Add New Movie
         </button>
       </div>
-      
+
       {error && (
         <div className="bg-red-900/50 border border-red-500 text-white px-4 py-3 rounded mb-6 flex items-center justify-between">
           <span>{error}</span>
-          <button 
-            onClick={() => setError('')}
+          <button
+            onClick={() => setError("")}
             className="ml-4 text-red-300 hover:text-white"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              fill="currentColor"
+              viewBox="0 0 16 16"
+            >
+              <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
             </svg>
           </button>
         </div>
       )}
-      
+
       {/* Edit form modal */}
       {editMode && (
         <div className="fixed inset-0 z-[1000] overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div 
-              className="fixed inset-0 transition-opacity" 
+            <div
+              className="fixed inset-0 transition-opacity"
               aria-hidden="true"
               onClick={cancelEdit}
             >
               <div className="absolute inset-0 bg-black opacity-75"></div>
             </div>
-            
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
+            <span
+              className="hidden sm:inline-block sm:align-middle sm:h-screen"
+              aria-hidden="true"
+            >
+              &#8203;
+            </span>
+
             <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full relative z-[1001]">
               <form onSubmit={handleUpdateMovie}>
                 <div className="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold text-white">
-                      {movieToEdit ? 'Edit Movie' : 'Add New Movie'}
+                      {movieToEdit ? "Edit Movie" : "Add New Movie"}
                     </h3>
-                    <button 
+                    <button
                       type="button"
                       onClick={cancelEdit}
                       className="text-gray-400 hover:text-white"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        fill="currentColor"
+                        viewBox="0 0 16 16"
+                      >
+                        <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
                       </svg>
                     </button>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left column - Basic Info */}
                     <div className="space-y-4">
                       <div>
-                        <label htmlFor="title" className="block text-sm font-medium text-gray-300">
+                        <label
+                          htmlFor="title"
+                          className="block text-sm font-medium text-gray-300"
+                        >
                           Movie Title <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           id="title"
                           name="title"
-                          value={updatedMovie.title || ''}
+                          value={updatedMovie.title || ""}
                           onChange={handleInputChange}
                           required
                           className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                         />
                       </div>
-                      
+
                       <div>
-                        <label htmlFor="description" className="block text-sm font-medium text-gray-300">
+                        <label
+                          htmlFor="description"
+                          className="block text-sm font-medium text-gray-300"
+                        >
                           Description
                         </label>
                         <textarea
                           id="description"
                           name="description"
                           rows={4}
-                          value={updatedMovie.description || ''}
+                          value={updatedMovie.description || ""}
                           onChange={handleInputChange}
                           className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                         />
                       </div>
 
                       <div>
-                        <label htmlFor="ai_summary" className="block text-sm font-medium text-gray-300">
+                        <label
+                          htmlFor="ai_summary"
+                          className="block text-sm font-medium text-gray-300"
+                        >
                           AI Summary
                         </label>
                         <textarea
                           id="ai_summary"
                           name="ai_summary"
                           rows={3}
-                          value={updatedMovie.ai_summary || ''}
+                          value={updatedMovie.ai_summary || ""}
                           onChange={handleInputChange}
                           placeholder="AI-generated summary of the movie"
                           className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                         />
                       </div>
-                      
+
                       <div>
-                        <label htmlFor="genre" className="block text-sm font-medium text-gray-300">
+                        <label
+                          htmlFor="genre"
+                          className="block text-sm font-medium text-gray-300"
+                        >
                           Genres
                         </label>
                         <select
@@ -502,9 +584,13 @@ export default function Movies() {
                           onChange={handleInputChange}
                           className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                         >
-                          {availableGenres.filter(g => g !== 'All').map(genre => (
-                            <option key={genre} value={genre}>{genre}</option>
-                          ))}
+                          {availableGenres
+                            .filter((g) => g !== "All")
+                            .map((genre) => (
+                              <option key={genre} value={genre}>
+                                {genre}
+                              </option>
+                            ))}
                         </select>
                         <p className="text-xs text-gray-400 mt-1">
                           Hold Ctrl (or Cmd) to select multiple genres
@@ -512,17 +598,27 @@ export default function Movies() {
                       </div>
 
                       <div>
-                        <label htmlFor="tags" className="block text-sm font-medium text-gray-300">
+                        <label
+                          htmlFor="tags"
+                          className="block text-sm font-medium text-gray-300"
+                        >
                           Tags
                         </label>
                         <input
                           type="text"
                           id="tags"
                           name="tags"
-                          value={Array.isArray(updatedMovie.tags) ? updatedMovie.tags.join(', ') : ''}
+                          value={
+                            Array.isArray(updatedMovie.tags)
+                              ? updatedMovie.tags.join(", ")
+                              : ""
+                          }
                           onChange={(e) => {
-                            const tags = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
-                            setUpdatedMovie(prev => ({ ...prev, tags }));
+                            const tags = e.target.value
+                              .split(",")
+                              .map((tag) => tag.trim())
+                              .filter((tag) => tag.length > 0);
+                            setUpdatedMovie((prev) => ({ ...prev, tags }));
                           }}
                           placeholder="action, thriller, blockbuster (comma separated)"
                           className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
@@ -532,18 +628,20 @@ export default function Movies() {
                         </p>
                       </div>
                     </div>
-                    
                     {/* Middle column - Technical Details */}
                     <div className="space-y-4">
                       <div>
-                        <label htmlFor="video_url" className="block text-sm font-medium text-gray-300">
+                        <label
+                          htmlFor="video_url"
+                          className="block text-sm font-medium text-gray-300"
+                        >
                           Video URL
                         </label>
                         <input
                           type="url"
                           id="video_url"
                           name="video_url"
-                          value={updatedMovie.video_url || ''}
+                          value={updatedMovie.video_url || ""}
                           onChange={handleInputChange}
                           placeholder="https://drive.google.com/file/d/..."
                           className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
@@ -554,7 +652,10 @@ export default function Movies() {
                       </div>
 
                       <div>
-                        <label htmlFor="quality_options" className="block text-sm font-medium text-gray-300">
+                        <label
+                          htmlFor="quality_options"
+                          className="block text-sm font-medium text-gray-300"
+                        >
                           Quality Options
                         </label>
                         <select
@@ -565,40 +666,51 @@ export default function Movies() {
                           onChange={handleInputChange}
                           className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                         >
-                          {availableQualityOptions.map(quality => (
-                            <option key={quality} value={quality}>{quality}</option>
+                          {availableQualityOptions.map((quality) => (
+                            <option key={quality} value={quality}>
+                              {quality}
+                            </option>
                           ))}
                         </select>
                         <p className="text-xs text-gray-400 mt-1">
                           Hold Ctrl (or Cmd) to select multiple quality options
                         </p>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label htmlFor="release_year" className="block text-sm font-medium text-gray-300">
+                          <label
+                            htmlFor="release_year"
+                            className="block text-sm font-medium text-gray-300"
+                          >
                             Release Year
                           </label>
                           <input
                             type="text"
                             id="release_year"
                             name="release_year"
-                            value={updatedMovie.release_year || new Date().getFullYear().toString()}
+                            value={
+                              updatedMovie.release_year ||
+                              new Date().getFullYear().toString()
+                            }
                             onChange={handleInputChange}
                             placeholder="2024"
                             className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                           />
                         </div>
-                        
+
                         <div>
-                          <label htmlFor="duration" className="block text-sm font-medium text-gray-300">
+                          <label
+                            htmlFor="duration"
+                            className="block text-sm font-medium text-gray-300"
+                          >
                             Duration
                           </label>
                           <input
                             type="text"
                             id="duration"
                             name="duration"
-                            value={updatedMovie.duration || ''}
+                            value={updatedMovie.duration || ""}
                             onChange={handleInputChange}
                             placeholder="2h 30m"
                             className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
@@ -608,7 +720,10 @@ export default function Movies() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label htmlFor="rating" className="block text-sm font-medium text-gray-300">
+                          <label
+                            htmlFor="rating"
+                            className="block text-sm font-medium text-gray-300"
+                          >
                             Rating (0-10)
                           </label>
                           <input
@@ -623,9 +738,12 @@ export default function Movies() {
                             className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                           />
                         </div>
-                        
+
                         <div>
-                          <label htmlFor="view_count" className="block text-sm font-medium text-gray-300">
+                          <label
+                            htmlFor="view_count"
+                            className="block text-sm font-medium text-gray-300"
+                          >
                             View Count
                           </label>
                           <input
@@ -641,7 +759,10 @@ export default function Movies() {
                       </div>
 
                       <div>
-                        <label htmlFor="download_count" className="block text-sm font-medium text-gray-300">
+                        <label
+                          htmlFor="download_count"
+                          className="block text-sm font-medium text-gray-300"
+                        >
                           Download Count
                         </label>
                         <input
@@ -654,7 +775,7 @@ export default function Movies() {
                           className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-red-500 focus:border-red-500"
                         />
                       </div>
-                      
+
                       <div className="space-y-3">
                         <div className="flex items-center">
                           <input
@@ -665,11 +786,14 @@ export default function Movies() {
                             onChange={handleInputChange}
                             className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-600 rounded bg-gray-700"
                           />
-                          <label htmlFor="is_featured" className="ml-2 block text-sm text-gray-300">
+                          <label
+                            htmlFor="is_featured"
+                            className="ml-2 block text-sm text-gray-300"
+                          >
                             Featured Movie
                           </label>
                         </div>
-                        
+
                         <div className="flex items-center">
                           <input
                             type="checkbox"
@@ -679,11 +803,14 @@ export default function Movies() {
                             onChange={handleInputChange}
                             className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-600 rounded bg-gray-700"
                           />
-                          <label htmlFor="is_trending" className="ml-2 block text-sm text-gray-300">
+                          <label
+                            htmlFor="is_trending"
+                            className="ml-2 block text-sm text-gray-300"
+                          >
                             Trending Movie
                           </label>
                         </div>
-                        
+
                         <div className="flex items-center">
                           <input
                             type="checkbox"
@@ -693,7 +820,10 @@ export default function Movies() {
                             onChange={handleInputChange}
                             className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-600 rounded bg-gray-700"
                           />
-                          <label htmlFor="premium_only" className="ml-2 block text-sm text-gray-300">
+                          <label
+                            htmlFor="premium_only"
+                            className="ml-2 block text-sm text-gray-300"
+                          >
                             Premium Only
                           </label>
                         </div>
@@ -707,19 +837,23 @@ export default function Movies() {
                             onChange={handleInputChange}
                             className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-600 rounded bg-gray-700"
                           />
-                          <label htmlFor="download_enabled" className="ml-2 block text-sm text-gray-300">
+                          <label
+                            htmlFor="download_enabled"
+                            className="ml-2 block text-sm text-gray-300"
+                          >
                             Download Enabled
                           </label>
                         </div>
                       </div>
                     </div>
-                    
+                    // Replace the poster section in your edit modal (around
+                    line 300-350) with this:
                     {/* Right column - Poster */}
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
                         Movie Poster
                       </label>
-                      
+
                       <div className="border-2 border-dashed border-gray-600 rounded-lg p-4 mb-4">
                         {posterPreview ? (
                           <div className="relative aspect-[2/3] bg-gray-700 rounded overflow-hidden">
@@ -733,49 +867,102 @@ export default function Movies() {
                               onClick={() => {
                                 setPosterPreview(null);
                                 setPosterFile(null);
-                                // Only reset the poster URL for new movies or when explicitly removing
-                                if (!movieToEdit || posterFile) {
-                                  setUpdatedMovie(prev => ({ ...prev, poster_url: undefined }));
+                                // Only clear poster_url if we had uploaded a new file
+                                if (posterFile) {
+                                  setUpdatedMovie((prev) => ({
+                                    ...prev,
+                                    poster_url: "",
+                                  }));
                                 }
                               }}
                               className="absolute top-2 right-2 p-1 rounded-full bg-black bg-opacity-70 text-white hover:bg-opacity-90"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                fill="currentColor"
+                                viewBox="0 0 16 16"
+                              >
+                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
                               </svg>
                             </button>
                           </div>
                         ) : (
-                          <div className="flex flex-col items-center justify-center p-6 bg-gray-700 rounded">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" className="text-gray-500 mb-4" viewBox="0 0 16 16">
-                              <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
-                              <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2zM14 2H4a1 1 0 0 0-1 1h9.002a2 2 0 0 1 2 2v7A1 1 0 0 0 15 11V3a1 1 0 0 0-1-1zM2.002 4a1 1 0 0 0-1 1v8l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71a.5.5 0 0 1 .577-.094l1.777 1.947V5a1 1 0 0 0-1-1h-10z"/>
-                            </svg>
-                            <p className="text-sm text-gray-400 text-center mb-2">
-                              Drag and drop a poster image or
-                            </p>
-                            <label htmlFor="poster-upload" className="cursor-pointer bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-white text-sm transition-colors">
-                              Select File
-                            </label>
-                          </div>
+                          <>
+                            <div className="flex flex-col items-center justify-center p-6 bg-gray-700 rounded">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="48"
+                                height="48"
+                                fill="currentColor"
+                                className="text-gray-500 mb-4"
+                                viewBox="0 0 16 16"
+                              >
+                                <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
+                                <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2zM14 2H4a1 1 0 0 0-1 1h9.002a2 2 0 0 1 2 2v7A1 1 0 0 0 15 11V3a1 1 0 0 0-1-1zM2.002 4a1 1 0 0 0-1 1v8l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71a.5.5 0 0 1 .577-.094l1.777 1.947V5a1 1 0 0 0-1-1h-10z" />
+                              </svg>
+                              <p className="text-sm text-gray-400 text-center mb-2">
+                                Drag and drop a poster image or
+                              </p>
+                              <label
+                                htmlFor="poster-upload"
+                                className="cursor-pointer bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-white text-sm transition-colors"
+                              >
+                                Select File
+                              </label>
+                            </div>
+
+                            <input
+                              type="file"
+                              id="poster-upload"
+                              accept="image/*"
+                              onChange={handleFileChange}
+                              className="hidden"
+                            />
+                          </>
                         )}
-                        
-                        <input
-                          type="file"
-                          id="poster-upload"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          className="hidden"
-                        />
                       </div>
-                      
+
+                      {/* ADD THIS NEW SECTION - Poster URL Input */}
+                      <div className="mb-4">
+                        <label
+                          className="block text-gray-300 text-sm font-medium mb-2"
+                          htmlFor="poster_url_edit"
+                        >
+                          Or Enter Poster URL
+                        </label>
+                        <input
+                          id="poster_url_edit"
+                          name="poster_url"
+                          type="url"
+                          value={updatedMovie.poster_url || ""}
+                          onChange={(e) => {
+                            handleInputChange(e);
+                            // If user enters a URL, use it as preview
+                            if (e.target.value && !posterFile) {
+                              setPosterPreview(e.target.value);
+                            }
+                          }}
+                          className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          placeholder="https://example.com/poster.jpg"
+                          disabled={!!posterFile}
+                        />
+                        <p className="text-gray-400 text-xs mt-1">
+                          {posterFile
+                            ? "Remove uploaded file to use URL instead"
+                            : "Direct link to an existing poster image"}
+                        </p>
+                      </div>
+
                       <p className="text-xs text-gray-400">
-                        Recommended: JPG or PNG, 2:3 aspect ratio (e.g., 800×1200px)
+                        Recommended: JPG or PNG, 2:3 aspect ratio (e.g.,
+                        800×1200px)
                       </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                   <button
                     type="submit"
@@ -784,14 +971,32 @@ export default function Movies() {
                   >
                     {isUpdating ? (
                       <>
-                        <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        <svg
+                          className="animate-spin -ml-1 mr-3 h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
                         </svg>
-                        {movieToEdit ? 'Updating...' : 'Adding...'}
+                        {movieToEdit ? "Updating..." : "Adding..."}
                       </>
+                    ) : movieToEdit ? (
+                      "Update Movie"
                     ) : (
-                      movieToEdit ? 'Update Movie' : 'Add Movie'
+                      "Add Movie"
                     )}
                   </button>
                   <button
@@ -808,13 +1013,13 @@ export default function Movies() {
           </div>
         </div>
       )}
-      
+
       {/* View movie details modal */}
       {showViewModal && selectedMovie && (
         <div className="fixed inset-0 z-[1000] overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div 
-              className="fixed inset-0 transition-opacity" 
+            <div
+              className="fixed inset-0 transition-opacity"
               aria-hidden="true"
               onClick={() => {
                 setShowViewModal(false);
@@ -823,28 +1028,39 @@ export default function Movies() {
             >
               <div className="absolute inset-0 bg-black opacity-75"></div>
             </div>
-            
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
+            <span
+              className="hidden sm:inline-block sm:align-middle sm:h-screen"
+              aria-hidden="true"
+            >
+              &#8203;
+            </span>
+
             <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full relative z-[1001]">
               <div className="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-bold text-white">
                     Movie Details
                   </h3>
-                  <button 
+                  <button
                     onClick={() => {
                       setShowViewModal(false);
                       setSelectedMovie(null);
                     }}
                     className="text-gray-400 hover:text-white"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                      <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      fill="currentColor"
+                      viewBox="0 0 16 16"
+                    >
+                      <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
                     </svg>
                   </button>
                 </div>
-                
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Poster */}
                   <div className="lg:col-span-1">
@@ -855,26 +1071,35 @@ export default function Movies() {
                           alt={`${selectedMovie.title} poster`}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.style.display = "none";
                           }}
                         />
                       ) : (
                         <div className="h-full flex items-center justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" className="text-gray-500" viewBox="0 0 16 16">
-                            <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
-                            <path d="M10.648 8.646a.5.5 0 0 1 .577-.093l1.777 1.947V14h-12v-1l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71z"/>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="64"
+                            height="64"
+                            fill="currentColor"
+                            className="text-gray-500"
+                            viewBox="0 0 16 16"
+                          >
+                            <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z" />
+                            <path d="M10.648 8.646a.5.5 0 0 1 .577-.093l1.777 1.947V14h-12v-1l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71z" />
                           </svg>
                         </div>
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Movie details */}
                   <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Left side - Main info */}
                     <div>
-                      <h2 className="text-2xl font-bold text-white mb-2">{selectedMovie.title}</h2>
-                      
+                      <h2 className="text-2xl font-bold text-white mb-2">
+                        {selectedMovie.title}
+                      </h2>
+
                       <div className="flex flex-wrap gap-2 mb-4">
                         {selectedMovie.is_featured && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
@@ -897,27 +1122,50 @@ export default function Movies() {
                           </span>
                         )}
                       </div>
-                      
+
                       <div className="space-y-3">
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400">Release Year</h4>
-                          <p className="text-white">{selectedMovie.release_year || 'N/A'}</p>
+                          <h4 className="text-sm font-medium text-gray-400">
+                            Release Year
+                          </h4>
+                          <p className="text-white">
+                            {selectedMovie.release_year || "N/A"}
+                          </p>
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400">Duration</h4>
-                          <p className="text-white">{selectedMovie.duration || 'N/A'}</p>
+                          <h4 className="text-sm font-medium text-gray-400">
+                            Duration
+                          </h4>
+                          <p className="text-white">
+                            {selectedMovie.duration || "N/A"}
+                          </p>
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400">Rating</h4>
-                          <p className="text-white">{selectedMovie.rating ? `${selectedMovie.rating}/10` : 'Not rated'}</p>
+                          <h4 className="text-sm font-medium text-gray-400">
+                            Rating
+                          </h4>
+                          <p className="text-white">
+                            {selectedMovie.rating
+                              ? `${selectedMovie.rating}/10`
+                              : "Not rated"}
+                          </p>
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400">Views</h4>
-                          <p className="text-white">{selectedMovie.view_count?.toLocaleString() || '0'}</p>
+                          <h4 className="text-sm font-medium text-gray-400">
+                            Views
+                          </h4>
+                          <p className="text-white">
+                            {selectedMovie.view_count?.toLocaleString() || "0"}
+                          </p>
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400">Downloads</h4>
-                          <p className="text-white">{selectedMovie.download_count?.toLocaleString() || '0'}</p>
+                          <h4 className="text-sm font-medium text-gray-400">
+                            Downloads
+                          </h4>
+                          <p className="text-white">
+                            {selectedMovie.download_count?.toLocaleString() ||
+                              "0"}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -926,64 +1174,89 @@ export default function Movies() {
                     <div>
                       <div className="space-y-3">
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400">Added On</h4>
-                          <p className="text-white">{new Date(selectedMovie.$createdAt).toLocaleDateString()}</p>
+                          <h4 className="text-sm font-medium text-gray-400">
+                            Added On
+                          </h4>
+                          <p className="text-white">
+                            {new Date(
+                              selectedMovie.$createdAt
+                            ).toLocaleDateString()}
+                          </p>
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400">Movie ID</h4>
-                          <p className="text-white font-mono text-xs truncate">{selectedMovie.$id}</p>
+                          <h4 className="text-sm font-medium text-gray-400">
+                            Movie ID
+                          </h4>
+                          <p className="text-white font-mono text-xs truncate">
+                            {selectedMovie.$id}
+                          </p>
                         </div>
-                        
+
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400 mb-2">Quality Options</h4>
+                          <h4 className="text-sm font-medium text-gray-400 mb-2">
+                            Quality Options
+                          </h4>
                           <div className="flex flex-wrap gap-1">
-                            {selectedMovie.quality_options && selectedMovie.quality_options.length > 0 ? (
-                              selectedMovie.quality_options.map(quality => (
-                                <span 
-                                  key={quality} 
+                            {selectedMovie.quality_options &&
+                            selectedMovie.quality_options.length > 0 ? (
+                              selectedMovie.quality_options.map((quality) => (
+                                <span
+                                  key={quality}
                                   className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-900 text-indigo-300"
                                 >
                                   {quality}
                                 </span>
                               ))
                             ) : (
-                              <span className="text-gray-500 text-sm">No quality options specified</span>
+                              <span className="text-gray-500 text-sm">
+                                No quality options specified
+                              </span>
                             )}
                           </div>
                         </div>
-                        
+
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400 mb-2">Genres</h4>
+                          <h4 className="text-sm font-medium text-gray-400 mb-2">
+                            Genres
+                          </h4>
                           <div className="flex flex-wrap gap-1">
-                            {selectedMovie.genre && selectedMovie.genre.length > 0 ? (
-                              selectedMovie.genre.map(genre => (
-                                <span 
-                                  key={genre} 
+                            {selectedMovie.genre &&
+                            selectedMovie.genre.length > 0 ? (
+                              selectedMovie.genre.map((genre) => (
+                                <span
+                                  key={genre}
                                   className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300"
                                 >
                                   {genre}
                                 </span>
                               ))
                             ) : (
-                              <span className="text-gray-500 text-sm">No genres specified</span>
+                              <span className="text-gray-500 text-sm">
+                                No genres specified
+                              </span>
                             )}
                           </div>
                         </div>
-                        
+
                         <div>
-                          <h4 className="text-sm font-medium text-gray-400 mb-2">Tags</h4>
+                          <h4 className="text-sm font-medium text-gray-400 mb-2">
+                            Tags
+                          </h4>
                           <div className="flex flex-wrap gap-1">
-                            {selectedMovie.tags && selectedMovie.tags.length > 0 ? (
-                              selectedMovie.tags.map(tag => (
-                                <span 
-                                  key={tag} 
+                            {selectedMovie.tags &&
+                            selectedMovie.tags.length > 0 ? (
+                              selectedMovie.tags.map((tag) => (
+                                <span
+                                  key={tag}
                                   className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300"
                                 >
                                   {tag}
                                 </span>
                               ))
                             ) : (
-                              <span className="text-gray-500 text-sm">No tags specified</span>
+                              <span className="text-gray-500 text-sm">
+                                No tags specified
+                              </span>
                             )}
                           </div>
                         </div>
@@ -991,21 +1264,25 @@ export default function Movies() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Description and AI Summary */}
                 <div className="mt-6 space-y-4">
                   {selectedMovie.description && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-400 mb-2">Description</h4>
+                      <h4 className="text-sm font-medium text-gray-400 mb-2">
+                        Description
+                      </h4>
                       <p className="text-white whitespace-pre-line">
                         {selectedMovie.description}
                       </p>
                     </div>
                   )}
-                  
+
                   {selectedMovie.ai_summary && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-400 mb-2">AI Summary</h4>
+                      <h4 className="text-sm font-medium text-gray-400 mb-2">
+                        AI Summary
+                      </h4>
                       <p className="text-white whitespace-pre-line">
                         {selectedMovie.ai_summary}
                       </p>
@@ -1013,7 +1290,7 @@ export default function Movies() {
                   )}
                 </div>
               </div>
-              
+
               <div className="bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
@@ -1023,8 +1300,15 @@ export default function Movies() {
                   }}
                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-yellow-600 text-base font-medium text-white hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="mr-2">
-                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                    viewBox="0 0 16 16"
+                    className="mr-2"
+                  >
+                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" />
                   </svg>
                   Edit Movie
                 </button>
@@ -1036,9 +1320,19 @@ export default function Movies() {
                   }}
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="mr-2">
-                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                    <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                    viewBox="0 0 16 16"
+                    className="mr-2"
+                  >
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z" />
+                    <path
+                      fillRule="evenodd"
+                      d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
+                    />
                   </svg>
                   Delete Movie
                 </button>
@@ -1057,7 +1351,7 @@ export default function Movies() {
           </div>
         </div>
       )}
-      
+
       {/* Filters */}
       <div className="bg-gray-800 rounded-lg p-4 mb-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1074,7 +1368,7 @@ export default function Movies() {
               className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-gray-400 mb-1" htmlFor="genre">
               Filter by Genre
@@ -1085,12 +1379,14 @@ export default function Movies() {
               onChange={(e) => setSelectedGenre(e.target.value)}
               className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
             >
-              {availableGenres.map(genre => (
-                <option key={genre} value={genre}>{genre}</option>
+              {availableGenres.map((genre) => (
+                <option key={genre} value={genre}>
+                  {genre}
+                </option>
               ))}
             </select>
           </div>
-          
+
           <div>
             <label className="block text-gray-400 mb-1" htmlFor="sort">
               Sort By
@@ -1111,7 +1407,7 @@ export default function Movies() {
           </div>
         </div>
       </div>
-      
+
       {/* Movies List */}
       <div className="bg-gray-800 rounded-lg overflow-hidden">
         {loading ? (
@@ -1136,24 +1432,34 @@ export default function Movies() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
-                {currentMovies.map(movie => (
-                  <tr key={movie.$id} className="hover:bg-gray-700/50 transition-colors">
+                {currentMovies.map((movie) => (
+                  <tr
+                    key={movie.$id}
+                    className="hover:bg-gray-700/50 transition-colors"
+                  >
                     <td className="px-6 py-4">
                       <div className="w-16 h-24 relative bg-gray-700 rounded overflow-hidden">
                         {movie.poster_url ? (
-                          <img 
-                            src={movie.poster_url} 
+                          <img
+                            src={movie.poster_url}
                             alt={`${movie.title} poster`}
                             className="absolute inset-0 w-full h-full object-cover"
                             onError={(e) => {
-                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.style.display = "none";
                             }}
                           />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" className="text-gray-500" viewBox="0 0 16 16">
-                              <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
-                              <path d="M10.648 8.646a.5.5 0 0 1 .577-.093l1.777 1.947V14h-12v-1l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71z"/>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              fill="currentColor"
+                              className="text-gray-500"
+                              viewBox="0 0 16 16"
+                            >
+                              <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z" />
+                              <path d="M10.648 8.646a.5.5 0 0 1 .577-.093l1.777 1.947V14h-12v-1l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71z" />
                             </svg>
                           </div>
                         )}
@@ -1161,7 +1467,9 @@ export default function Movies() {
                     </td>
                     <td className="px-6 py-4 font-medium">
                       <div className="max-w-xs">
-                        <h3 className="font-semibold text-white truncate">{movie.title}</h3>
+                        <h3 className="font-semibold text-white truncate">
+                          {movie.title}
+                        </h3>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {movie.is_featured && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-900 text-yellow-300">
@@ -1182,18 +1490,30 @@ export default function Movies() {
                         {/* Mobile-only info */}
                         <div className="md:hidden mt-2 flex flex-col space-y-1">
                           <div className="text-sm text-gray-400">
-                            {movie.release_year || 'N/A'} • {movie.duration || 'N/A'}
+                            {movie.release_year || "N/A"} •{" "}
+                            {movie.duration || "N/A"}
                           </div>
                           <div className="flex flex-wrap gap-1">
-                            {movie.genre && Array.isArray(movie.genre) && movie.genre.length > 0 ? movie.genre.slice(0, 1).map(g => (
-                              <span key={g} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300">
-                                {g}
+                            {movie.genre &&
+                            Array.isArray(movie.genre) &&
+                            movie.genre.length > 0 ? (
+                              movie.genre.slice(0, 1).map((g) => (
+                                <span
+                                  key={g}
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300"
+                                >
+                                  {g}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-gray-500 text-sm">
+                                No genres
                               </span>
-                            )) : (
-                              <span className="text-gray-500 text-sm">No genres</span>
                             )}
                             {movie.genre && movie.genre.length > 1 && (
-                              <span className="text-gray-400 text-xs">+{movie.genre.length - 1} more</span>
+                              <span className="text-gray-400 text-xs">
+                                +{movie.genre.length - 1} more
+                              </span>
                             )}
                           </div>
                         </div>
@@ -1201,37 +1521,62 @@ export default function Movies() {
                     </td>
                     <td className="px-6 py-4 hidden md:table-cell">
                       <div className="flex flex-wrap gap-1 max-w-xs">
-                        {movie.genre && Array.isArray(movie.genre) && movie.genre.length > 0 ? movie.genre.slice(0, 2).map(g => (
-                          <span key={g} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300">
-                            {g}
+                        {movie.genre &&
+                        Array.isArray(movie.genre) &&
+                        movie.genre.length > 0 ? (
+                          movie.genre.slice(0, 2).map((g) => (
+                            <span
+                              key={g}
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300"
+                            >
+                              {g}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-500 text-sm">
+                            No genres
                           </span>
-                        )) : (
-                          <span className="text-gray-500 text-sm">No genres</span>
                         )}
                         {movie.genre && movie.genre.length > 2 && (
-                          <span className="text-gray-400 text-xs">+{movie.genre.length - 2} more</span>
+                          <span className="text-gray-400 text-xs">
+                            +{movie.genre.length - 2} more
+                          </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 hidden md:table-cell">{movie.release_year || 'N/A'}</td>
-                    <td className="px-6 py-4 hidden lg:table-cell">{movie.duration || 'N/A'}</td>
+                    <td className="px-6 py-4 hidden md:table-cell">
+                      {movie.release_year || "N/A"}
+                    </td>
+                    <td className="px-6 py-4 hidden lg:table-cell">
+                      {movie.duration || "N/A"}
+                    </td>
                     <td className="px-6 py-4 hidden lg:table-cell">
                       <div className="flex flex-wrap gap-1">
-                        {movie.quality_options && Array.isArray(movie.quality_options) && movie.quality_options.length > 0 ? 
-                          movie.quality_options.slice(0, 2).map(quality => (
-                            <span key={quality} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-900 text-indigo-300">
+                        {movie.quality_options &&
+                        Array.isArray(movie.quality_options) &&
+                        movie.quality_options.length > 0 ? (
+                          movie.quality_options.slice(0, 2).map((quality) => (
+                            <span
+                              key={quality}
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-900 text-indigo-300"
+                            >
                               {quality}
                             </span>
-                          )) : (
-                            <span className="text-gray-500 text-sm">N/A</span>
-                          )
-                        }
-                        {movie.quality_options && movie.quality_options.length > 2 && (
-                          <span className="text-gray-400 text-xs">+{movie.quality_options.length - 2}</span>
+                          ))
+                        ) : (
+                          <span className="text-gray-500 text-sm">N/A</span>
                         )}
+                        {movie.quality_options &&
+                          movie.quality_options.length > 2 && (
+                            <span className="text-gray-400 text-xs">
+                              +{movie.quality_options.length - 2}
+                            </span>
+                          )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 hidden lg:table-cell">{movie.view_count?.toLocaleString() || '0'}</td>
+                    <td className="px-6 py-4 hidden lg:table-cell">
+                      {movie.view_count?.toLocaleString() || "0"}
+                    </td>
                     <td className="px-6 py-4 hidden md:table-cell">
                       <div className="flex items-center">
                         <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
@@ -1241,37 +1586,58 @@ export default function Movies() {
                     <td className="px-6 py-4">
                       <div className="flex justify-center space-x-3">
                         {/* VIEW Action */}
-                        <button 
+                        <button
                           onClick={() => handleViewClick(movie)}
                           className="text-blue-500 hover:text-blue-400 transition-colors"
                           title="View movie details"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>
-                            <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            fill="currentColor"
+                            viewBox="0 0 16 16"
+                          >
+                            <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z" />
+                            <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" />
                           </svg>
                         </button>
-                        
+
                         {/* EDIT Action */}
-                        <button 
+                        <button
                           onClick={() => handleEditClick(movie)}
                           className="text-yellow-500 hover:text-yellow-400 transition-colors"
                           title="Edit movie"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            fill="currentColor"
+                            viewBox="0 0 16 16"
+                          >
+                            <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" />
                           </svg>
                         </button>
-                        
+
                         {/* DELETE Action */}
-                        <button 
+                        <button
                           onClick={() => handleDeleteClick(movie)}
                           className="text-red-500 hover:text-red-400 transition-colors"
                           title="Delete movie"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                            <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            fill="currentColor"
+                            viewBox="0 0 16 16"
+                          >
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z" />
+                            <path
+                              fillRule="evenodd"
+                              d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
+                            />
                           </svg>
                         </button>
                       </div>
@@ -1283,36 +1649,45 @@ export default function Movies() {
           </div>
         ) : (
           <div className="p-8 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" className="text-gray-600 mx-auto mb-4" viewBox="0 0 16 16">
-              <path d="M0 1a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm4 0v6h8V1H4zm8 8H4v6h8V9zM1 1v2h2V1H1zm2 3H1v2h2V4zM1 7v2h2V7H1zm2 3H1v2h2v-2zm-2 3v2h2v-2H1zM15 1h-2v2h2V1zm-2 3v2h2V4h-2zm2 3h-2v2h2V7zm-2 3v2h2v-2h-2zm2 3h-2v2h2v-2z"/>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="64"
+              height="64"
+              fill="currentColor"
+              className="text-gray-600 mx-auto mb-4"
+              viewBox="0 0 16 16"
+            >
+              <path d="M0 1a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm4 0v6h8V1H4zm8 8H4v6h8V9zM1 1v2h2V1H1zm2 3H1v2h2V4zM1 7v2h2V7H1zm2 3H1v2h2v-2zm-2 3v2h2v-2H1zM15 1h-2v2h2V1zm-2 3v2h2V4h-2zm2 3h-2v2h2V7zm-2 3v2h2v-2h-2zm2 3h-2v2h2v-2z" />
             </svg>
-            <h3 className="text-xl font-bold mb-2 text-white">No movies found</h3>
+            <h3 className="text-xl font-bold mb-2 text-white">
+              No movies found
+            </h3>
             <p className="text-gray-400 mb-4">
-              {searchTerm || selectedGenre !== 'All' 
-                ? 'Try adjusting your search or filters' 
-                : 'Add your first movie to get started'}
+              {searchTerm || selectedGenre !== "All"
+                ? "Try adjusting your search or filters"
+                : "Add your first movie to get started"}
             </p>
-            <button 
+            <button
               onClick={() => {
                 setMovieToEdit(null);
                 setUpdatedMovie({
-                    title: '',
-                    description: '',
-                    ai_summary: '',
-                    genre: [],
-                    quality_options: [],
-                    video_url: '',
-                    premium_only: false,
-                    download_enabled: true,
-                    view_count: 0,
-                    rating: 0,
-                    download_count: 0,
-                    is_featured: false,
-                    is_trending: false,
-                    tags: [],
-                    release_year: new Date().getFullYear().toString(),
-                    duration: ''
-                  });
+                  title: "",
+                  description: "",
+                  ai_summary: "",
+                  genre: [],
+                  quality_options: [],
+                  video_url: "",
+                  premium_only: false,
+                  download_enabled: true,
+                  view_count: 0,
+                  rating: 0,
+                  download_count: 0,
+                  is_featured: false,
+                  is_trending: false,
+                  tags: [],
+                  release_year: new Date().getFullYear().toString(),
+                  duration: "",
+                });
                 setEditMode(true);
                 setPosterFile(null);
                 setPosterPreview(null);
@@ -1322,22 +1697,27 @@ export default function Movies() {
               }}
               className="inline-flex items-center text-red-500 hover:text-red-400 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="mr-2">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                fill="currentColor"
+                viewBox="0 0 16 16"
+                className="mr-2"
+              >
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
               </svg>
               Add your first movie
             </button>
           </div>
         )}
-        
+
         {/* Pagination footer */}
         <div className="p-4 bg-gray-800 border-t border-gray-700">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-gray-400 mr-2">
-                Items per page:
-              </span>
+              <span className="text-gray-400 mr-2">Items per page:</span>
               <select
                 value={moviesPerPage}
                 onChange={handleMoviesPerPageChange}
@@ -1349,91 +1729,159 @@ export default function Movies() {
                 <option value="50">50</option>
               </select>
             </div>
-            
+
             <div className="flex items-center gap-1">
-              <button 
-                onClick={() => goToPage(1)} 
+              <button
+                onClick={() => goToPage(1)}
                 disabled={currentPage === 1}
                 className="px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fillRule="evenodd" d="M8.354 1.646a.5.5 0 0 1 0 .708L2.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-                  <path fillRule="evenodd" d="M12.354 1.646a.5.5 0 0 1 0 .708L6.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  fill="currentColor"
+                  viewBox="0 0 16 16"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8.354 1.646a.5.5 0 0 1 0 .708L2.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"
+                  />
+                  <path
+                    fillRule="evenodd"
+                    d="M12.354 1.646a.5.5 0 0 1 0 .708L6.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"
+                  />
                 </svg>
               </button>
-              
-              <button 
-                onClick={goToPrevPage} 
+
+              <button
+                onClick={goToPrevPage}
                 disabled={currentPage === 1}
                 className="px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  fill="currentColor"
+                  viewBox="0 0 16 16"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"
+                  />
                 </svg>
               </button>
-              
+
               <div className="px-4 py-1 rounded bg-gray-700 border border-gray-600 text-white">
-                <span className="text-gray-300">Page</span> <span className="font-medium">{currentPage}</span> <span className="text-gray-300">of</span> <span className="font-medium">{totalPages}</span>
+                <span className="text-gray-300">Page</span>{" "}
+                <span className="font-medium">{currentPage}</span>{" "}
+                <span className="text-gray-300">of</span>{" "}
+                <span className="font-medium">{totalPages}</span>
               </div>
-              
-              <button 
-                onClick={goToNextPage} 
+
+              <button
+                onClick={goToNextPage}
                 disabled={currentPage === totalPages}
                 className="px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  fill="currentColor"
+                  viewBox="0 0 16 16"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"
+                  />
                 </svg>
               </button>
-              
-              <button 
-                onClick={() => goToPage(totalPages)} 
+
+              <button
+                onClick={() => goToPage(totalPages)}
                 disabled={currentPage === totalPages}
                 className="px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fillRule="evenodd" d="M3.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L9.293 8 3.646 2.354a.5.5 0 0 1 0-.708z"/>
-                  <path fillRule="evenodd" d="M7.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L13.293 8 7.646 2.354a.5.5 0 0 1 0-.708z"/>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  fill="currentColor"
+                  viewBox="0 0 16 16"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M3.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L9.293 8 3.646 2.354a.5.5 0 0 1 0-.708z"
+                  />
+                  <path
+                    fillRule="evenodd"
+                    d="M7.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L13.293 8 7.646 2.354a.5.5 0 0 1 0-.708z"
+                  />
                 </svg>
               </button>
             </div>
-            
+
             <div className="text-gray-400 whitespace-nowrap">
-              Showing {currentMovies.length > 0 ? (currentPage - 1) * moviesPerPage + 1 : 0} to {Math.min(currentPage * moviesPerPage, filteredMovies.length)} of {filteredMovies.length} movies
+              Showing{" "}
+              {currentMovies.length > 0
+                ? (currentPage - 1) * moviesPerPage + 1
+                : 0}{" "}
+              to {Math.min(currentPage * moviesPerPage, filteredMovies.length)}{" "}
+              of {filteredMovies.length} movies
             </div>
           </div>
         </div>
       </div>
-      
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && movieToDelete && (
         <div className="fixed inset-0 z-[1000] overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div 
-              className="fixed inset-0 transition-opacity" 
+            <div
+              className="fixed inset-0 transition-opacity"
               aria-hidden="true"
               onClick={cancelDelete}
             >
               <div className="absolute inset-0 bg-black opacity-75"></div>
             </div>
-            
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
+            <span
+              className="hidden sm:inline-block sm:align-middle sm:h-screen"
+              aria-hidden="true"
+            >
+              &#8203;
+            </span>
+
             <div className="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-[1001]">
               <div className="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" className="text-red-600" viewBox="0 0 16 16">
-                      <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      fill="currentColor"
+                      className="text-red-600"
+                      viewBox="0 0 16 16"
+                    >
+                      <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
                     </svg>
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-white" id="modal-title">
+                    <h3
+                      className="text-lg leading-6 font-medium text-white"
+                      id="modal-title"
+                    >
                       Delete Movie
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-300">
-                        Are you sure you want to delete &quot;{movieToDelete.title}&quot;? This action cannot be undone and will permanently remove the movie from your database.
+                        Are you sure you want to delete &quot;
+                        {movieToDelete.title}&quot;? This action cannot be
+                        undone and will permanently remove the movie from your
+                        database.
                       </p>
                     </div>
                   </div>
@@ -1448,14 +1896,30 @@ export default function Movies() {
                 >
                   {isDeleting ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       Deleting...
                     </>
                   ) : (
-                    'Delete Movie'
+                    "Delete Movie"
                   )}
                 </button>
                 <button
