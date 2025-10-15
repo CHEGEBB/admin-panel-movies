@@ -846,8 +846,6 @@ export default function Movies() {
                         </div>
                       </div>
                     </div>
-                    // Replace the poster section in your edit modal (around
-                    line 300-350) with this:
                     {/* Right column - Poster */}
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
