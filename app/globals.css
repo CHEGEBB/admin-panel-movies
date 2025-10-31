@@ -2,11 +2,11 @@
 @import "tailwindcss";
 
 * {
-  font-family: 'Rubik', sans-serif !important;
+  font-family: 'Raleway', sans-serif !important;
 }
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Rubik', sans-serif !important;
+  font-family: 'Raleway', sans-serif !important;
 
 }
