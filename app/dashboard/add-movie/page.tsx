@@ -159,7 +159,7 @@ export default function AddMovie() {
       // Upload poster if provided
       if (posterFile) {
         const uploadResult = await uploadPoster(posterFile);
-        const posterUrl = `https://cloud.appwrite.io/v1/storage/buckets/${uploadResult.bucketId}/files/${uploadResult.$id}/view?project=68ed11b1002fb111be98`;
+        const posterUrl = `https://cloud.appwrite.io/v1/storage/buckets/${uploadResult.bucketId}/files/${uploadResult.$id}/view?project=dj-afro-movies-2`;
         // const posterUrl = `https://cloud.appwrite.io/v1/storage/buckets/${uploadResult.bucketId}/files/${uploadResult.$id}/view?project=dj-afro-movies`;
         movieData.poster_url = posterUrl;
       } else if (!formData.poster_url.trim()) {
