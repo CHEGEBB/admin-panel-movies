@@ -5,7 +5,7 @@ import { Client, Account, Databases, Storage, Models, ID, Query } from 'appwrite
 // Initialize the Appwrite client
 const client = new Client()
     .setEndpoint('https://cloud.appwrite.io/v1')
-    .setProject('68ed11b1002fb111be98');
+    .setProject('dj-afro-movies-2');
 
 // Initialize Appwrite services
 export const account = new Account(client);
