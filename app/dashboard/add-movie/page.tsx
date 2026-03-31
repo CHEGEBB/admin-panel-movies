@@ -113,128 +113,116 @@ export default function AddMovie() {
     setPosterPreview(previewUrl);
   };
   
-// Replace ONLY your handleSubmit function in app/dashboard/add-movie/page.tsx
-// Everything else stays exactly the same
-
-const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
-  setSuccess('');
-  
-  try {
-    // Basic validation
-    if (!formData.title.trim()) throw new Error('Title is required');
-    if (!formData.description.trim()) throw new Error('Description is required');
-    if (formData.genre.length === 0) throw new Error('At least one genre is required');
-    if (!formData.release_year.trim()) throw new Error('Release year is required');
-    if (!formData.duration.trim()) throw new Error('Duration is required');
-    if (!formData.video_url.trim()) throw new Error('Video URL is required');
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
     
-    // Validate release year
-    const currentYear = new Date().getFullYear();
-    const releaseYear = parseInt(formData.release_year);
-    if (isNaN(releaseYear) || releaseYear < 1900 || releaseYear > currentYear) {
-      throw new Error('Please enter a valid release year between 1900 and ' + currentYear);
-    }
-    
-    // Validate duration
-    const duration = parseInt(formData.duration);
-    if (isNaN(duration) || duration < 1) {
-      throw new Error('Duration must be a positive number');
-    }
-    
-    // Validate video URL format
     try {
-      new URL(formData.video_url);
-    } catch {
-      throw new Error('Please enter a valid video URL');
-    }
-    
-    // Prepare movie data
-    const movieData = { ...formData };
-    
-    // Ensure arrays are properly formatted
-    movieData.genre = formData.genre.filter(g => g.trim() !== '');
-    movieData.quality_options = formData.quality_options.filter(q => q.trim() !== '');
-    movieData.tags = formData.tags.filter(t => t.trim() !== '');
-    
-    // Upload poster if provided
-    if (posterFile) {
-      const uploadResult = await uploadPoster(posterFile);
-      const posterUrl = `https://cloud.appwrite.io/v1/storage/buckets/${uploadResult.bucketId}/files/${uploadResult.$id}/view?project=dj-afro-movies-2`;
-      movieData.poster_url = posterUrl;
-    } else if (!formData.poster_url.trim()) {
-      throw new Error('Poster image is required (either upload a file or provide a URL)');
-    }
-    
-    // Validate poster URL if provided
-    if (movieData.poster_url && !posterFile) {
-      try {
-        new URL(movieData.poster_url);
-      } catch {
-        throw new Error('Please enter a valid poster URL');
+      if (!formData.title.trim()) throw new Error('Title is required');
+      if (!formData.description.trim()) throw new Error('Description is required');
+      if (formData.genre.length === 0) throw new Error('At least one genre is required');
+      if (!formData.release_year.trim()) throw new Error('Release year is required');
+      if (!formData.duration.trim()) throw new Error('Duration is required');
+      if (!formData.video_url.trim()) throw new Error('Video URL is required');
+      
+      const currentYear = new Date().getFullYear();
+      const releaseYear = parseInt(formData.release_year);
+      if (isNaN(releaseYear) || releaseYear < 1900 || releaseYear > currentYear) {
+        throw new Error('Please enter a valid release year between 1900 and ' + currentYear);
       }
+      
+      const duration = parseInt(formData.duration);
+      if (isNaN(duration) || duration < 1) {
+        throw new Error('Duration must be a positive number');
+      }
+      
+      try {
+        new URL(formData.video_url);
+      } catch {
+        throw new Error('Please enter a valid video URL');
+      }
+      
+      const movieData = { ...formData };
+      movieData.genre = formData.genre.filter(g => g.trim() !== '');
+      movieData.quality_options = formData.quality_options.filter(q => q.trim() !== '');
+      movieData.tags = formData.tags.filter(t => t.trim() !== '');
+      
+      if (posterFile) {
+        const uploadResult = await uploadPoster(posterFile);
+        const posterUrl = `https://cloud.appwrite.io/v1/storage/buckets/${uploadResult.bucketId}/files/${uploadResult.$id}/view?project=dj-afro-movies-2`;
+        movieData.poster_url = posterUrl;
+      } else if (!formData.poster_url.trim()) {
+        throw new Error('Poster image is required (either upload a file or provide a URL)');
+      }
+      
+      if (movieData.poster_url && !posterFile) {
+        try {
+          new URL(movieData.poster_url);
+        } catch {
+          throw new Error('Please enter a valid poster URL');
+        }
+      }
+      
+      // ─── Add movie to Appwrite ───────────────────────────────────────
+      await addMovie(movieData);
+  
+      // ─── Notify all users via OneSignal ─────────────────────────────
+      fetch("https://onesignal.com/api/v1/notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Basic ${process.env.NEXT_PUBLIC_ONESIGNAL_REST_API_KEY}`,
+        },
+        body: JSON.stringify({
+          app_id: "e42c0fe5-3779-44a2-987b-c1e1ecd6f576",
+          included_segments: ["All"],
+          headings: { en: "🎬 New on DjAfroCinema" },
+          contents: { en: `${formData.title} is now streaming. Tap to watch!` },
+          url: "https://www.djafrocinema.com/dashboard/movies",
+          chrome_web_icon: "https://www.djafrocinema.com/android-chrome-192x192.png",
+          chrome_web_image: movieData.poster_url || "",
+        }),
+      }).catch(err => console.warn("OneSignal notify failed:", err));
+      // ────────────────────────────────────────────────────────────────
+  
+      setSuccess(`"${formData.title}" added! Users are being notified. 🎬`);
+      
+      setFormData({
+        title: '',
+        description: '',
+        ai_summary: '',
+        genre: [],
+        poster_url: '',
+        quality_options: [],
+        premium_only: false,
+        download_enabled: true,
+        view_count: 0,
+        rating: 0,
+        download_count: 0,
+        is_featured: false,
+        is_trending: false,
+        tags: [],
+        release_year: '',
+        duration: '',
+        video_url: ''
+      });
+      
+      setPosterFile(null);
+      setPosterPreview('');
+      
+      setTimeout(() => {
+        router.push('/dashboard/movies');
+      }, 2000);
+      
+    } catch (err) {
+      setError((err as Error).message || 'Failed to add movie. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    // ─── Add movie to Appwrite ───────────────────────────────────────
-    await addMovie(movieData);
-
-    // ─── Notify all users via push notification ──────────────────────
-    // Fire and forget — don't block success if notify fails
-    fetch("https://www.djafrocinema.com/api/push/notify", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-notify-secret": process.env.NEXT_PUBLIC_NOTIFY_SECRET ?? "",
-      },
-      body: JSON.stringify({
-        title: "🎬 New on DjAfroCinema",
-        body: `${formData.title} is now streaming. Tap to watch now!`,
-        icon: movieData.poster_url || "/android-chrome-192x192.png",
-        url: "https://www.djafrocinema.com/dashboard/movies",
-        tag: "new-movie",
-      }),
-    }).catch((err) => console.warn("Push notify failed (non-blocking):", err));
-    // ────────────────────────────────────────────────────────────────
-    
-    setSuccess(`"${formData.title}" added successfully! Users are being notified. 🎬`);
-    
-    // Reset form after success
-    setFormData({
-      title: '',
-      description: '',
-      ai_summary: '',
-      genre: [],
-      poster_url: '',
-      quality_options: [],
-      premium_only: false,
-      download_enabled: true,
-      view_count: 0,
-      rating: 0,
-      download_count: 0,
-      is_featured: false,
-      is_trending: false,
-      tags: [],
-      release_year: '',
-      duration: '',
-      video_url: ''
-    });
-    
-    setPosterFile(null);
-    setPosterPreview('');
-    
-    // Redirect to movies list after a delay
-    setTimeout(() => {
-      router.push('/dashboard/movies');
-    }, 2000);
-    
-  } catch (err) {
-    setError((err as Error).message || 'Failed to add movie. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+  
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="mb-8">
