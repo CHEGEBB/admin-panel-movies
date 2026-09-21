@@ -6,7 +6,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getCurrentUser, logout } from '@/lib/appwrite';
+
+const SESSION_KEY = 'dja_admin_session';
 
 export default function DashboardLayout({
   children,
@@ -20,27 +21,36 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    async function checkAuth() {
+    function checkAuth() {
       setLoading(true);
-      const currentUser = await getCurrentUser();
-      if (!currentUser) {
+      const raw = localStorage.getItem(SESSION_KEY);
+
+      if (!raw) {
         router.push('/login');
         return;
       }
-      setUser(currentUser);
-      setLoading(false);
+
+      try {
+        const session = JSON.parse(raw);
+        const MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+        if (Date.now() - session.loggedInAt > MAX_AGE) {
+          localStorage.removeItem(SESSION_KEY);
+          router.push('/login');
+          return;
+        }
+        setUser({ name: 'Brian', email: session.email });
+        setLoading(false);
+      } catch {
+        router.push('/login');
+      }
     }
-    
+
     checkAuth();
   }, [router]);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      router.push('/login');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem(SESSION_KEY);
+    router.push('/login');
   };
 
   if (loading) {
@@ -62,7 +72,6 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex">
-      {/* Sidebar for larger screens */}
       <aside className="hidden md:flex flex-col w-64 bg-gray-900 border-r border-gray-800">
         <div className="p-5 border-b border-gray-800">
           <Link href="/dashboard" className="flex items-center gap-3">
@@ -115,7 +124,6 @@ export default function DashboardLayout({
         </div>
       </aside>
       
-      {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ${
         sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}>
@@ -177,9 +185,7 @@ export default function DashboardLayout({
         </div>
       </div>
       
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Mobile header */}
         <header className="md:hidden bg-black p-4 flex items-center justify-between border-b border-gray-800">
           <button 
             onClick={() => setSidebarOpen(true)}
@@ -195,10 +201,9 @@ export default function DashboardLayout({
             <span className="text-xl font-bold text-red-600">DJ Afro</span>
           </Link>
           
-          <div className="w-6"></div> {/* Empty div for flex spacing */}
+          <div className="w-6"></div>
         </header>
         
-        {/* Content area */}
         <main className="flex-1 p-6 overflow-auto">
           {children}
         </main>
@@ -207,7 +212,6 @@ export default function DashboardLayout({
   );
 }
 
-// Icon component for navigation
 function IconForNav({ name }: { name: string }) {
   switch (name) {
     case 'dashboard':
